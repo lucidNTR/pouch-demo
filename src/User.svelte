@@ -1,11 +1,11 @@
 <script>
     import pouchDb from 'pouchdb-browser'
 
-    let { name, initialDoc } = $props()
+    let { name, initialDoc, remote } = $props()
 
-    const db = new pouchDb('myDb_' + name)
+    const db = pouchDb('myDb_' + name)
   
-    let doc = $state({})
+    let doc = $state({ text: '', count: 0 })
     db.get('demo').then(newDoc => {
       doc = newDoc
     }).catch(() => {
@@ -22,20 +22,24 @@
   
     function counter () {
       doc.count += 1
-      db.post(doc)
+      db.put(doc)
     }
-  </script>
+    function updateText ({ target }) {
+      doc.text = target.value
+      db.put(doc)
+    }
+</script>
   
-  <article>
+<article>
     <header>
         <h2>User {name}</h2>
     </header>
 
     
-    <input type="text" value={doc.text} />
+    <input type="text" value={doc.text} onblur={updateText}/>
     
     <div>
-      <button on:click={counter}>Counter</button> count: {doc.count}
+      <button onclick={counter}>Counter</button> count: {doc.count}
     </div>
 
     {#if changes.length}

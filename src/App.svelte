@@ -30,7 +30,7 @@
   </header>
 
   <section>
-    <User name="a" {initialDoc} remote={online ? (reomoteUrl || remoteDB) : null} />
+    <User name="a" {initialDoc} remote={online ? (remoteUrl || remoteDB) : null} />
     
     {#if simulate}
       <User name="b" bind:db={remoteDB} />
