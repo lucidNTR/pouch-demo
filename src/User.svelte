@@ -39,7 +39,7 @@
     </div>
 
     {#if changes.length}
-      Changes since start:
+      <h3 style="margin-top: 21px;">Changes since start:</h3>
     {/if}
   
     <ul>
