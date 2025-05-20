@@ -9,8 +9,11 @@
       db = $bindable()
     } = $props()
 
-    db = pouchDb('myDb1_' + name)
+    const dbPrefix = 'myDb4_'
 
+    db = pouchDb(dbPrefix + name)
+
+    let lastReplicationSeq = $state(0)
     let replication = null
     $effect(() => {
       if (replication) {
@@ -23,25 +26,35 @@
         replication = db.sync(remote, {
           live: true,
           retry: true
+        }).on('change', ({ change }) => {
+          console.log(change)
+          lastReplicationSeq = change.last_seq
         })
 
-        console.log('syncing...', {remote, replication})
+        console.log('syncing...', { remote, replication })
       }
     })
   
     let doc = $state({ text: '', count: 0 })
     db.get('demo').then(newDoc => {
       doc = newDoc
-    }).catch(() => {
-      if (initialDoc) {
+    }).catch((err) => {
+      if (err.name === 'not_found' && initialDoc) {
         db.put(initialDoc)
       }
     })
   
+    let lastLocalSeq = $state(0)
     let changes = $state([])
-    db.changes({ include_docs: true, live: true, since: 'now', doc_ids: ['demo'] }).on('change', (change) => {
+    db.changes({
+      include_docs: true,
+      live: true,
+      since: 'now',
+      doc_ids: ['demo']
+    }).on('change', (change) => {
       console.log(change)
       doc = change.doc
+      lastLocalSeq = change.seq
       changes.push(change)
     })
   
@@ -59,13 +72,13 @@
 
     onDestroy(() => {
       replication?.cancel()
-      db.destroy()
+      db.close()
     })
 </script>
   
 <article>
     <header>
-        <h2>User {name}</h2>
+        <h2>User {name} {#if lastLocalSeq - lastReplicationSeq}({lastLocalSeq - lastReplicationSeq} unsynced changes){/if}</h2>
     </header>
 
     <input type="text" value={doc.text} onblur={updateText}/>
@@ -79,9 +92,8 @@
     {/if}
   
     <ul>
-      {#each changes as {doc, seq}}
-        <li>db seq id: {seq}, text: "{doc.text}", count: {doc.count}</li> 
-        <!-- revision: {doc._rev} -->
+      {#each changes as { doc, seq }}
+        <li>db seq id: {seq}, text: "{doc.text}", count: {doc.count}</li>
       {/each}
     </ul>
 </article>

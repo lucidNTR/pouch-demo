@@ -12,9 +12,6 @@
     count: 1
   }
 
-  // add latency
-  // add seq
-  // add num docs
   // add unsynced count
   // sync status
 </script>
