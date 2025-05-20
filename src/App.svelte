@@ -20,9 +20,13 @@
 </script>
 
 <main>
-  <header>
-    <button onclick={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
-    <button onclick={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+  <header style="display: flex; padding: 17px; justify-content: space-between;">
+    <img src="/logo.svg" alt="pouchdb logo" style="height: 30px; margin: 0; padding-top: 5px;">
+    
+    <div>
+      <button onclick={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
+      <button onclick={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+    </div>
   </header>
 
   <section>
