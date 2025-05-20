@@ -1,15 +1,32 @@
 <script>
-  import test from 'pouchdb-browser'
-  console.log(test)
-  window.test = test
-  // console.log(pouchDB)
-  // const db = new PouchDB('my_db')
+  import pouchDb from 'pouchdb-browser'
+  const db = new pouchDb('my_db')
+
+  db.put({ _id: 'myDoc', text: 'PouchDB!', count: 1 })
+
+  let changes = []
+
+  function counter () {
+
+  }
 </script>
 
 <main>
-  test
+  <div>
+    {#await db.get('myDoc') then doc}
+      Hello {doc.text} {doc.count}
+    {/await}
+  </div>
+
+  <div class="mt-2">
+    <button on:click={counter}>Counter</button>
+  </div>
 </main>
 
-<style>
-
-</style>
+<aside>
+  Changes:
+  
+  {#each changes as {doc}}
+    text: {doc.hello} count: {doc.count}
+  {/each}
+</aside>

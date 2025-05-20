@@ -9,9 +9,10 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^5.0.3",
-    "svelte": "^5.28.6",
-    "vite": "^6.3.5",
-    "pouchdb-browser": "^9.0.0"
+    "@sveltejs/vite-plugin-svelte": "5.0.3",
+    "pouchdb-browser": "9.0.0",
+    "svelte": "5.31.1",
+    "vite": "6.3.5",
+    "vite-plugin-node-polyfills": "0.23.0"
   }
 }
