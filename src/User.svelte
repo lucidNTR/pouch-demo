@@ -60,8 +60,8 @@
       changes.push(change)
     })
   
-    function counter () {
-      doc.count += 1
+    function updateLastSeen () {
+      doc.lastSeen = Date.now()
       db.put(doc)
     }
 
@@ -86,16 +86,16 @@
     <input type="text" value={doc.text} onblur={updateText}/>
     
     <div>
-      <button onclick={counter}>Counter</button> count: {doc.count}
+      <button onclick={updateLastSeen}>Click</button> last clicked: {doc.lastSeen}
     </div>
 
     {#if changes.length}
-      <h3 style="margin-top: 21px;">Changes since start:</h3>
+      <h3 style="margin-top: 21px;">Changes since start: <button onclick={() => changes = []}>clear</button></h3> 
     {/if}
   
     <ul>
       {#each changes as { doc, seq }}
-        <li>db seq id: {seq}, text: "{doc.text}", count: {doc.count}</li>
+        <li>db seq id: {seq}, text: "{doc.text}", last pressed: {doc.lastSeen}</li>
       {/each}
     </ul>
 </article>
