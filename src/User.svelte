@@ -83,6 +83,7 @@
         <h2>User {name} {#if lastLocalSeq - lastReplicationSeq}({lastLocalSeq - lastReplicationSeq} unsynced changes){/if}</h2>
     </header>
 
+    <input type="checkbox" checked={false} />
     <input type="text" value={doc.text} onblur={updateText}/>
     
     <div>
