@@ -1,9 +1,33 @@
 <script>
+    import { onDestroy } from 'svelte'
     import pouchDb from 'pouchdb-browser'
 
-    let { name, initialDoc, remote } = $props()
+    let {
+      name,
+      initialDoc = null,
+      remote = null,
+      db = $bindable()
+    } = $props()
 
-    const db = pouchDb('myDb_' + name)
+    db = pouchDb('myDb1_' + name)
+
+    let replication = null
+    $effect(() => {
+      if (replication) {
+        replication.cancel()
+        replication = null
+        console.log('cancelling sync...')
+      }
+
+      if (remote) {
+        replication = db.sync(remote, {
+          live: true,
+          retry: true
+        })
+
+        console.log('syncing...', {remote, replication})
+      }
+    })
   
     let doc = $state({ text: '', count: 0 })
     db.get('demo').then(newDoc => {
@@ -16,6 +40,7 @@
   
     let changes = $state([])
     db.changes({ include_docs: true, live: true, since: 'now', doc_ids: ['demo'] }).on('change', (change) => {
+      console.log(change)
       doc = change.doc
       changes.push(change)
     })
@@ -24,10 +49,18 @@
       doc.count += 1
       db.put(doc)
     }
+
     function updateText ({ target }) {
-      doc.text = target.value
-      db.put(doc)
+      if (doc.text !== target.value) {
+        doc.text = target.value
+        db.put(doc)
+      }
     }
+
+    onDestroy(() => {
+      replication?.cancel()
+      db.destroy()
+    })
 </script>
   
 <article>
@@ -35,7 +68,6 @@
         <h2>User {name}</h2>
     </header>
 
-    
     <input type="text" value={doc.text} onblur={updateText}/>
     
     <div>
@@ -48,8 +80,8 @@
   
     <ul>
       {#each changes as {doc, seq}}
-        <li>text: {doc.text} count: {doc.count}</li> 
-        <!-- revision: {doc._rev} db squence id: {seq} -->
+        <li>db seq id: {seq}, text: "{doc.text}", count: {doc.count}</li> 
+        <!-- revision: {doc._rev} -->
       {/each}
     </ul>
 </article>
