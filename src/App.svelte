@@ -4,22 +4,49 @@
   let online = $state(true)
   let simulate = $state(true)
   let remoteUrl = $state('')
-  let remoteDB = $state({})
+  let remoteDB = $state(null)
 
+  const initialDoc = {
+    _id: 'demo',
+    text: 'Hello PouchDB!',
+    count: 1
+  }
+
+  // add latency
+  // add seq
+  // add num docs
+  // add unsynced count
+  // sync status
 </script>
 
 <main>
-  <button onclick={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
-  <button onclick={() =>  simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+  <header>
+    <button onclick={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
+    <button onclick={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+  </header>
 
-  <User name="a" />
+  <section>
+    <User name="a" {initialDoc} remote={online ? (reomoteUrl || remoteDB) : null} />
+    
+    {#if simulate}
+      <User name="b" bind:db={remoteDB} />
+    {:else}
+      <article>
+         <header> 
+          <h3>Remote couchDB url:</h3>
+        </header>
 
-  
-  {#if simulate}
-    <User name="b" remote={online ? (reomoteUrl || remoteDB) : null} />
-  {:else}
-    <article>
-      <input type="text" value={remoteUrl} placeholder="https://my-remote-couchdb/myDb">
-    </article>
-  {/if}
+        <input type="text" bind:value={remoteUrl} placeholder="https://my-remote-couchdb/myDb">
+      </article>
+    {/if}
+  </section>
 </main>
+
+<style>
+ @media only screen and (min-width: 786px) {
+    section {
+      display: flex;
+      align-items: flex-start;
+    }
+ }
+</style>
