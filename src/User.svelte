@@ -24,9 +24,10 @@
     }
   </script>
   
-  <main>
-    <h2>User {props.name}</h2>
-
+  <article>
+    <header>
+        <h2>User {props.name}</h2>
+    </header>
     <div>
         Hello {doc.text} {doc.count}
     </div>
@@ -34,15 +35,13 @@
     <div class="mt-2">
       <button on:click={counter}>Counter</button>
     </div>
-  </main>
-  
-  <aside>
+
     Changes since start:
   
     <ul>
     {#each changes as {doc}}
-      <li>_id: {doc._id} text: {doc.hello} count: {doc.count}</li>
+      <li>text: {doc.text} count: {doc.count}</li>
     {/each}
     </ul>
-  </aside>
-  
+
+</article>
