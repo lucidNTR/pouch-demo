@@ -95,7 +95,7 @@
   
     <ul>
       {#each changes as { doc, seq }}
-        <li>db seq id: {seq}, text: "{doc.text}", last pressed: {doc.lastSeen}</li>
+        <li>db seq id: {seq}, text: "{doc.text}", last clicked: {doc.lastSeen}</li>
       {/each}
     </ul>
 </article>
