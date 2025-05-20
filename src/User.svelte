@@ -29,6 +29,7 @@
         }).on('change', ({ change }) => {
           console.log(change)
           lastReplicationSeq = change.last_seq
+          // db.put({ _id: '_local/sync', last_seq: lastReplicationSeq })
         })
 
         console.log('syncing...', { remote, replication })
@@ -48,6 +49,7 @@
     let changes = $state([])
     db.changes({
       include_docs: true,
+      conflicts: true,
       live: true,
       since: 'now',
       doc_ids: ['demo']
