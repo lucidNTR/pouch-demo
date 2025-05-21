@@ -1,6 +1,8 @@
 <script>
     import { onDestroy } from 'svelte'
     import pouchDb from 'pouchdb-browser'
+    import findPlugin from 'pouchdb-find'
+    pouchDb.plugin(findPlugin)
 
     let {
       name,
@@ -10,6 +12,9 @@
     } = $props()
 
     db = pouchDb(name, { prefix: 'demo3_' })
+    db.createIndex({
+      index: { fields: ['archived', 'done', 'order'] }
+    })
 
     let lastLocalSeq = $state(null)
     let changes = $state([])
@@ -17,8 +22,7 @@
       include_docs: true,
       conflicts: true,
       live: true,
-      since: 'now',
-      doc_ids: ['demo']
+      since: 'now'
     }).on('change', (change) => {
       doc = change.doc
       lastLocalSeq = change.seq
@@ -57,7 +61,7 @@
       }
     })
   
-    let doc = $state({ text: '', count: 0 })
+    let doc = $state({ text: '', done: false })
     db.get('demo').then(newDoc => {
       doc = newDoc
     }).catch((err) => {
@@ -65,11 +69,16 @@
         db.put(initialDoc)
       }
     })
-  
 
+    db.find({
+      selector: {
+        archived: { $eq: false }
+      },
+      sort: ['archived', 'done', 'order']
+    })
   
-    function updateLastSeen () {
-      doc.lastSeen = Date.now()
+    function updateDone ({target}) {
+      doc.done = target.checked
       db.put(doc)
     }
 
@@ -91,16 +100,15 @@
         <h2>User {name} {#if unsyncedChanges > 0}({unsyncedChanges} unsynced changes){/if}</h2>
     </header>
 
-
     <div style="display: flex; align-items: center;">
-      <input class="checkbox" type="checkbox" value="checked">
-    
+      <input class="checkbox" type="checkbox" checked={doc.done} onchange={updateDone}>
       <input type="text" value={doc.text} onblur={updateText}>
     </div>
 
-    <!-- <div>
-      <button onclick={updateLastSeen}>Click</button> last clicked: {doc.lastSeen}
-    </div> -->
+    <div style="display: flex; align-items: center;">
+      <input type="text" style="margin-left: 31px" placeholder="add todo"> 
+      <button class="add" onclick={add}>Add</button>
+    </div>
 
     {#if changes.length}
       <h3 style="margin-top: 21px;">Changes since start: <button onmousedown={() => changes = []}>clear</button></h3> 
@@ -108,7 +116,7 @@
   
     <ul>
       {#each changes as { doc, seq }}
-        <li>db seq id: {seq}, text: "{doc.text}", last clicked: {doc.lastSeen}</li>
+        <li>db seq: {seq}, text: "{doc.text}", done: {doc.done}</li>
       {/each}
     </ul>
 </article>

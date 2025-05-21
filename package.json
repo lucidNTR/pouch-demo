@@ -13,6 +13,7 @@
     "pouchdb-browser": "9.0.0",
     "svelte": "5.31.1",
     "vite": "6.3.5",
-    "vite-plugin-node-polyfills": "0.23.0"
+    "vite-plugin-node-polyfills": "0.23.0",
+    "pouchdb-find": "^9.0.0"
   }
 }
