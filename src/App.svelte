@@ -8,7 +8,7 @@
 
   const initialDoc = {
     _id: 'demo',
-    text: 'Hello PouchDB!',
+    text: 'Learn PouchDB!',
     count: 1
   }
 
@@ -21,8 +21,8 @@
     <img src="/logo.svg" alt="pouchdb logo" style="height: 30px; margin: 0; padding-top: 5px;">
     
     <div>
-      <button onclick={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
-      <button onclick={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+      <button onmousedown={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
+      <button onmousedown={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
     </div>
   </header>
 

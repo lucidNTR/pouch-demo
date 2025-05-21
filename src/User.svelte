@@ -9,11 +9,28 @@
       db = $bindable()
     } = $props()
 
-    const dbPrefix = 'myDb4_'
+    db = pouchDb(name, { prefix: 'demo3_' })
 
-    db = pouchDb(dbPrefix + name)
+    let lastLocalSeq = $state(null)
+    let changes = $state([])
+    db.changes({
+      include_docs: true,
+      conflicts: true,
+      live: true,
+      since: 'now',
+      doc_ids: ['demo']
+    }).on('change', (change) => {
+      doc = change.doc
+      lastLocalSeq = change.seq
+      changes.push(change)
+    })
 
-    let lastReplicationSeq = $state(0)
+    let syncDoc = $state({ _id: '_local/sync', last_seq: null, _rev: undefined })
+    db.get('_local/sync').then(doc => {
+      syncDoc = doc
+    }).catch(() => {})
+    let unsyncedChanges = $derived((syncDoc.last_seq && lastLocalSeq) ? lastLocalSeq - syncDoc.last_seq : 0)
+
     let replication = null
     $effect(() => {
       if (replication) {
@@ -26,13 +43,17 @@
         replication = db.sync(remote, {
           live: true,
           retry: true
-        }).on('change', ({ change }) => {
-          console.log(change)
-          lastReplicationSeq = change.last_seq
-          // db.put({ _id: '_local/sync', last_seq: lastReplicationSeq })
+        })
+        replication.push.on('paused', async (err) => {
+          console.log('synced', { err })
+          
+          if (!err) {
+            syncDoc.last_seq = (await db.info()).update_seq
+            syncDoc._rev = ( await db.put(syncDoc)).rev
+          }
         })
 
-        console.log('syncing...', { remote, replication })
+        console.log('starting sync...', { remote, replication })
       }
     })
   
@@ -45,20 +66,7 @@
       }
     })
   
-    let lastLocalSeq = $state(0)
-    let changes = $state([])
-    db.changes({
-      include_docs: true,
-      conflicts: true,
-      live: true,
-      since: 'now',
-      doc_ids: ['demo']
-    }).on('change', (change) => {
-      console.log(change)
-      doc = change.doc
-      lastLocalSeq = change.seq
-      changes.push(change)
-    })
+
   
     function updateLastSeen () {
       doc.lastSeen = Date.now()
@@ -80,18 +88,22 @@
   
 <article>
     <header>
-        <h2>User {name} {#if lastLocalSeq - lastReplicationSeq}({lastLocalSeq - lastReplicationSeq} unsynced changes){/if}</h2>
+        <h2>User {name} {#if unsyncedChanges > 0}({unsyncedChanges} unsynced changes){/if}</h2>
     </header>
 
-    <input type="checkbox" checked={false} />
-    <input type="text" value={doc.text} onblur={updateText}/>
+
+    <div style="display: flex; align-items: center;">
+      <input class="checkbox" type="checkbox" value="checked">
     
-    <div>
-      <button onclick={updateLastSeen}>Click</button> last clicked: {doc.lastSeen}
+      <input type="text" value={doc.text} onblur={updateText}>
     </div>
 
+    <!-- <div>
+      <button onclick={updateLastSeen}>Click</button> last clicked: {doc.lastSeen}
+    </div> -->
+
     {#if changes.length}
-      <h3 style="margin-top: 21px;">Changes since start: <button onclick={() => changes = []}>clear</button></h3> 
+      <h3 style="margin-top: 21px;">Changes since start: <button onmousedown={() => changes = []}>clear</button></h3> 
     {/if}
   
     <ul>
