@@ -135,7 +135,7 @@
     </header>
 
     {#each list as id, i (id)}
-      {@const doc = docs[id]}
+      {@const doc = docs[id] || {}}
       
       <div
         class="todo"
