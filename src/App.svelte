@@ -6,12 +6,6 @@
   let remoteUrl = $state('')
   let remoteDB = $state(null)
 
-  const initialDoc = {
-    _id: 'demo',
-    text: 'Learn PouchDB!',
-    count: 1
-  }
-
   // add unsynced count
   // sync status
 </script>
@@ -27,7 +21,7 @@
   </header>
 
   <section>
-    <User name="a" {initialDoc} remote={online ? (remoteUrl || remoteDB) : null} />
+    <User name="a" remote={online ? (remoteUrl || remoteDB) : null} />
     
     {#if simulate}
       <User name="b" bind:db={remoteDB} />

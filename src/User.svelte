@@ -4,16 +4,21 @@
     import findPlugin from 'pouchdb-find'
     pouchDb.plugin(findPlugin)
 
+    const sortOrder = ['archived', 'done', 'order']
+
     let {
       name,
-      initialDoc = null,
       remote = null,
       db = $bindable()
     } = $props()
 
-    db = pouchDb(name, { prefix: 'demo3_' })
+    let list = $state([])
+    let docs = $state({})
+    db = pouchDb(name, { prefix: 'demo_' })
     db.createIndex({
-      index: { fields: ['archived', 'done', 'order'] }
+      index: { fields: sortOrder },
+    }).then(() => {
+      refreshTodos({ include_docs: true })
     })
 
     let lastLocalSeq = $state(null)
@@ -24,16 +29,49 @@
       live: true,
       since: 'now'
     }).on('change', (change) => {
-      doc = change.doc
+      console.log(change)
+      const oldDoc = docs[change.doc._id]
+      const newDoc = change.doc
+
+      let refreshList = false
+      for (const key of sortOrder) {
+        if (!oldDoc || (oldDoc[key] !== newDoc[key])) {
+          refreshList = true
+          break
+        }        
+      }
+
+      docs[change.doc._id] = newDoc
       lastLocalSeq = change.seq
-      changes.push(change)
+      changes = [change, ...changes]
+      if (refreshList) {
+        refreshTodos()
+      }
     })
+
+    function refreshTodos ({ include_docs = false } = {}) {
+      db.find({
+        selector: {
+          archived: false,
+          done: { $exists: true },
+          order: { $exists: true },
+        },
+        fields: include_docs ? undefined : ['_id'],
+        sort: sortOrder,
+        limit: 200
+      }).then(({ docs: newDocs }) => {
+        list = []
+        for (const doc of newDocs.reverse()) {
+          list.push(doc._id)
+          include_docs && (docs[doc._id] = doc)
+        }
+      })
+    }
 
     let syncDoc = $state({ _id: '_local/sync', last_seq: null, _rev: undefined })
     db.get('_local/sync').then(doc => {
       syncDoc = doc
     }).catch(() => {})
-    let unsyncedChanges = $derived((syncDoc.last_seq && lastLocalSeq) ? lastLocalSeq - syncDoc.last_seq : 0)
 
     let replication = null
     $effect(() => {
@@ -53,40 +91,20 @@
           
           if (!err) {
             syncDoc.last_seq = (await db.info()).update_seq
-            syncDoc._rev = ( await db.put(syncDoc)).rev
+            syncDoc._rev = (await db.put(syncDoc)).rev
           }
         })
 
         console.log('starting sync...', { remote, replication })
       }
     })
-  
-    let doc = $state({ text: '', done: false })
-    db.get('demo').then(newDoc => {
-      doc = newDoc
-    }).catch((err) => {
-      if (err.name === 'not_found' && initialDoc) {
-        db.put(initialDoc)
-      }
-    })
 
-    db.find({
-      selector: {
-        archived: { $eq: false }
-      },
-      sort: ['archived', 'done', 'order']
-    })
+    let unsyncedChanges = $derived((syncDoc.last_seq && lastLocalSeq) ? lastLocalSeq - syncDoc.last_seq : 0)
   
-    function updateDone ({target}) {
-      doc.done = target.checked
-      db.put(doc)
-    }
-
-    function updateText ({ target }) {
-      if (doc.text !== target.value) {
-        doc.text = target.value
-        db.put(doc)
-      }
+    let newTodo = $state('')
+    function add () {
+      db.post({ text: newTodo, done: false, archived: false, order: 10 })
+      newTodo = ''
     }
 
     onDestroy(() => {
@@ -100,23 +118,27 @@
         <h2>User {name} {#if unsyncedChanges > 0}({unsyncedChanges} unsynced changes){/if}</h2>
     </header>
 
+    {#each list as id (id)}
+      {@const doc = docs[id]}
+      
+      <div style="display: flex; align-items: center;">
+        <input class="checkbox" type="checkbox" checked={doc.done} onchange={({ target }) => db.put({...doc, done: target.checked})}>
+        <input type="text" value={doc.text} onblur={({ target }) => doc.text !== newText && db.put({ ...doc, text: newText })}>
+      </div>
+    {/each}
+    
     <div style="display: flex; align-items: center;">
-      <input class="checkbox" type="checkbox" checked={doc.done} onchange={updateDone}>
-      <input type="text" value={doc.text} onblur={updateText}>
-    </div>
-
-    <div style="display: flex; align-items: center;">
-      <input type="text" style="margin-left: 31px" placeholder="add todo"> 
+      <input type="text" style="margin-left: 31px" placeholder="add todo" bind:value={newTodo}> 
       <button class="add" onclick={add}>Add</button>
     </div>
 
     {#if changes.length}
-      <h3 style="margin-top: 21px;">Changes since start: <button onmousedown={() => changes = []}>clear</button></h3> 
+      <h3 style="margin-top: 21px;">Last 3 Changes: <button onmousedown={() => changes = []}>clear</button></h3> 
     {/if}
   
     <ul>
-      {#each changes as { doc, seq }}
-        <li>db seq: {seq}, text: "{doc.text}", done: {doc.done}</li>
+      {#each changes.slice(0,3) as { doc, seq }}
+        <li>db seq: {seq}, text: "{doc.text}", done: {doc.done}, order: {doc.order}</li>
       {/each}
     </ul>
 </article>
