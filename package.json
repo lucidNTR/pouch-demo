@@ -11,9 +11,10 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "5.0.3",
     "pouchdb-browser": "9.0.0",
+    "pouchdb-find": "^9.0.0",
     "svelte": "5.31.1",
     "vite": "6.3.5",
     "vite-plugin-node-polyfills": "0.23.0",
-    "pouchdb-find": "^9.0.0"
+    "json-merge-patch": "^1.0.2"
   }
 }

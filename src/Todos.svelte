@@ -1,10 +1,9 @@
 <script>
     import { onDestroy } from 'svelte'
     import { flip } from 'svelte/animate'
-    import pouchDb from 'pouchdb-browser'
+    import pouchDB from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
-    // @ts-ignore
-    pouchDb.plugin(findPlugin)
+    import jsonmergepatch from 'json-merge-patch'
 
     const sortOrder = ['archived', 'done', 'order']
 
@@ -16,59 +15,72 @@
 
     let list = $state([])
     let docs = $state({})
-    db = pouchDb(name, { prefix: 'demo_' })
+
+    // @ts-ignore - (svelte component ts issue, typed correctly in external svelte files or plain ts/js)
+    db = new pouchDB.plugin(findPlugin)(name)
+    
+    let filter = $state(null)
     db.createIndex({
-      index: { fields: sortOrder },
+      index: { fields: sortOrder }
     }).then(() => {
-      refreshTodos({ include_docs: true })
+      filter = 'active'
+    })
+    $effect(() => {
+      filter && refreshTodos({ activeFilter: filter })
     })
 
     let lastLocalSeq = $state(null)
     let changes = $state([])
     db.changes({
-      include_docs: true,
-      conflicts: true,
       live: true,
-      since: 'now'
-    }).on('change', (change) => {
-      const oldDoc = docs[change.doc._id]
-      const newDoc = change.doc
+      since: 'now',
+      filter: doc => !doc._id.startsWith('_design/')
+    }).on('change', async change => {
+      change.doc = await db.get(change.id, { revs_info: true, conflicts: true })
+      const conflicts = change.doc._conflicts && await Promise.all(change.doc._conflicts.map(rev => db.get(change.doc._id, {rev})))
+      const firstAvailableRev = change.doc._revs_info.find((rev, i) =>  i !== 0 && rev.status === 'available')?.rev
 
-      let refreshList = false
+      delete change.doc._revs_info
+      delete change.doc._conflicts
+      change.conflicts = conflicts?.map(conflict => ({ left: jsonmergepatch.generate(change.doc, conflict), right: jsonmergepatch.generate(conflict, change.doc) })) 
+
+      const ancestor = firstAvailableRev && await db.get(change.doc._id, { rev: firstAvailableRev })
+      
+      if (ancestor) {
+        change.diff = jsonmergepatch.generate(ancestor, change.doc)
+      }
+
+      const oldDoc = docs[change.id]
+
+      docs[change.id] = change.doc
+      lastLocalSeq = change.seq
+      changes = [change, ...changes]
+      
       for (const key of sortOrder) {
-        if (!oldDoc || (oldDoc[key] !== newDoc[key])) {
-          refreshList = true
+        if (!oldDoc || (oldDoc[key] !== change.doc[key])) {
+          refreshTodos({ activeFilter: filter })
           break
         }        
       }
-
-      docs[change.doc._id] = newDoc
-      lastLocalSeq = change.seq
-      
-      if (lastLocalSeq > 1) {
-        changes = [change, ...changes]
-      }
-      
-      if (refreshList) {
-        refreshTodos()
-      }
     })
 
-    async function refreshTodos ({ include_docs = false } = {}) {
+    const initialLoad = {}
+    async function refreshTodos ({ activeFilter = null } = {}) {
       const { docs: newDocs } = await db.find({
         selector: {
-          archived: false,
+          archived: activeFilter === 'archived',
           done: { $exists: true },
           order: { $exists: true },
         },
-        fields: include_docs ? undefined : ['_id'],
+        fields: initialLoad ? undefined : ['_id'],
         sort: sortOrder,
         limit: 200
       })
-      if (include_docs) {
+      if (!initialLoad[activeFilter]) {
         for (const doc of newDocs) {
             docs[doc._id] = doc
         }
+        initialLoad[activeFilter] = true
       }
       list = newDocs.reverse().map(doc => doc._id)
     }
@@ -128,7 +140,7 @@
     })
 </script>
   
-<article>
+<article class:archived={filter === 'archived'}>
     <header>
         <h2>
           User {name} 
@@ -136,48 +148,65 @@
             <p class="slow">({unsyncedChanges} unsynced changes)</p>
           {/if}
         </h2>
+
+        <button class="filter-button" onmousedown={() => filter = (filter === 'active' ? 'archived' : 'active')}>{filter === 'active' ? 'Show Archived' : 'Show Active'}</button>
     </header>
 
-    {#each list as id, i (id)}
-      {@const doc = docs[id] || {}}
-      
-      <div
-        class="todo"
-        role="list"
-        animate:flip={{ duration: 100 }}
-        class:dragover={dragover === doc._id}
-        ondrop={() => move(doc, dragging, i)}
-        ondragend={() => { dragging=null; dragover = null}}
-        draggable={dragging===doc._id}
-        ondragover={e => { e.preventDefault(); dragover = doc._id}} >
+    {#key filter}
+      {#each list as id, i (id)}
+        {@const doc = docs[id] || {}}
+        
+        <div
+          class="todo"
+          role="list"
+          animate:flip={{ duration: 100 }}
+          class:dragover={dragover === doc._id}
+          ondrop={() => move(doc, dragging, i)}
+          ondragend={() => { dragging=null; dragover = null}}
+          draggable={dragging===doc._id}
+          ondragover={e => { e.preventDefault(); dragover = doc._id}} >
 
-          <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
-          
-          <input type="text" value={doc.text} onblur={function () {(doc.text !== this.value) && db.put({ ...doc, text: this.value })  }}>
-          
-          <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
-          
-          <div 
-            class="drag"
-            role="button"
-            tabindex=-1
-            onmousedown={() => dragging=doc._id}
-            onmouseup={() => {dragging=null; dragover = null}}>⠿</div>
-      </div>
-    {/each}
+            <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
+            
+            <input type="text" value={doc.text} onblur={function () {(doc.text !== this.value) && db.put({ ...doc, text: this.value })  }}>
+            
+            <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
+            
+            <div 
+              class="drag"
+              role="button"
+              tabindex=-1
+              onmousedown={() => dragging=doc._id}
+              onmouseup={() => {dragging=null; dragover = null}}>⠿</div>
+        </div>
+      {/each}
+    {/key}
     
-    <div style="display: flex; align-items: center;">
+    <div class="add-todo">
       <input type="text" style="margin-left: 31px" placeholder="add todo" bind:value={newTodo} onkeydown={e => { e.key === 'Enter' && add()}}> 
       <button class="add" onmousedown={add}>Add</button>
     </div>
 
     {#if changes.length}
-      <h3 style="margin-top: 21px;">Last 3 Changes: <button onmousedown={() => changes = []}>clear</button></h3> 
+      <h3 style="margin-top: 21px;">Changes: <button onmousedown={() => changes = []}>clear</button></h3> 
     {/if}
   
     <ul>
-      {#each changes.slice(0,3) as { doc, seq }}
-        <li>db seq: {seq}, text: "{doc.text}", done: {doc.done}, order: {doc.order}</li>
+      {#each changes as { doc, seq, diff, conflicts }}
+        <li>
+          db seq: {seq} <br>
+          id: {doc._id}
+          {#if diff}
+            <pre>diff: {JSON.stringify(diff, null, 2)}</pre>
+          {:else}
+            <pre>doc: {JSON.stringify(doc, null, 2)}</pre>
+          {/if}
+
+
+          {#if conflicts}
+            <pre>conflicts: {JSON.stringify(conflicts, null, 2)}</pre>
+          {/if}
+        </li>
       {/each}
     </ul>
 </article>
