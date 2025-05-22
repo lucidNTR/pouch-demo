@@ -61,13 +61,12 @@
         sort: sortOrder,
         limit: 200
       })
-      list = []
-      for (const doc of newDocs.reverse()) {
-        list.push(doc._id)
-        if (include_docs) {
-          docs[doc._id] = doc
+      if (include_docs) {
+        for (const doc of newDocs) {
+            docs[doc._id] = doc
         }
       }
+      list = newDocs.reverse().map(doc => doc._id)
     }
 
     let syncDoc = $state({ _id: '_local/sync', last_seq: null, _rev: undefined })
@@ -105,6 +104,10 @@
     let dragging = $state(null)
     let dragover = $state(null)
     function move (moveAboveDoc, idToMove, index) {
+      if (docs[idToMove].done !== moveAboveDoc.done) {
+        return
+      }
+
       let newOrder
       if ((index - 1) >= 0) {
         const moveBelowId = list.at(index - 1)
