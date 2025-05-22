@@ -43,3 +43,57 @@ input.checkbox {
         align-items: flex-start;
     }
 }
+
+.todo {
+    display: flex; align-items: center;
+}
+
+.delete {
+    user-select: none;
+    border: none;
+    display: none;
+    position: absolute;
+    right: 13px;
+    margin-top: 10px;
+    opacity: 0.4;
+}
+.delete:hover {
+    opacity: 1;
+}
+.todo:hover .delete {
+    display: block;
+}
+
+article {
+    position: relative;
+}
+
+.drag {
+    user-select: none;
+    position: absolute;
+    opacity: 0;
+    right: 0px;
+    margin-top: 4px;
+    cursor: grab;
+    padding: 3px;
+}
+.todo:hover .drag {
+    opacity: 0.5;
+}
+.drag:hover {
+    opacity: 1 !important;
+}
+
+.todo.dragover input[type="text"] {
+    box-shadow: 0 -1px 0 0 #c0c0c0;
+}
+
+.slow {
+    display: inline;
+    animation: fadein 1s;
+}
+
+@keyframes fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}

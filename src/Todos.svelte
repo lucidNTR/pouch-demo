@@ -106,7 +106,7 @@
   
     let newTodo = $state('')
     function add () {
-      const previousOrder = docs[list.at(-1)].order || 0
+      const previousOrder = docs[list.at(-1)]?.order || 0
       db.post({ text: newTodo, done: false, archived: false, order: previousOrder - 1 })
       newTodo = ''
     }
@@ -115,25 +115,40 @@
       replication?.cancel()
       db.close()
     })
+
+    let dragging = $state(null)
+    let dragover = $state(null)
 </script>
   
 <article>
     <header>
-        <h2>User {name} {#if unsyncedChanges > 0}({unsyncedChanges} unsynced changes){/if}</h2>
+        <h2>User {name} {#if unsyncedChanges > 0}<p class="slow">({unsyncedChanges} unsynced changes)</p>{/if}</h2>
     </header>
 
     {#each list as id (id)}
       {@const doc = docs[id]}
       
-      <div style="display: flex; align-items: center;">
-        <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
-        <input type="text" value={doc.text} onblur={function () { doc.text !== this.value && db.put({ ...doc, text: this.value } ) }}>
+      <div
+        class="todo"
+        role="list"
+        class:dragover={dragover === doc._id}
+        ondragend={() => {dragging=null; dragover = null}}
+        draggable={dragging===doc._id}
+        ondragenter={() => {dragover = doc._id }} >
+
+          <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
+          
+          <input type="text" value={doc.text} onblur={function () { doc.text !== this.value && db.put({ ...doc, text: this.value } ) }}>
+          
+          <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
+          
+          <div class="drag" role="button" tabindex=-1 onmousedown={() => dragging=doc._id} onmouseup={() => {dragging=null; dragover = null}}>⠿</div>
       </div>
     {/each}
     
     <div style="display: flex; align-items: center;">
       <input type="text" style="margin-left: 31px" placeholder="add todo" bind:value={newTodo}> 
-      <button class="add" onclick={add}>Add</button>
+      <button class="add" onmousedown={add}>Add</button>
     </div>
 
     {#if changes.length}
