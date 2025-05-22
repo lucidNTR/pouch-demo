@@ -4,8 +4,7 @@
     import pouchDB from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
     import jsonmergepatch from 'json-merge-patch'
-
-    const sortOrder = ['archived', 'done', 'order']
+    import * as automerge from "@automerge/automerge/next"
 
     let {
       name,
@@ -15,10 +14,28 @@
 
     let list = $state([])
     let docs = $state({})
+    let crdts = {}
 
     // @ts-ignore - (svelte component ts issue, typed correctly in external svelte files or plain ts/js)
     db = new pouchDB.plugin(findPlugin)(name)
-    
+
+    db.put({
+      _id: '_design/conflicts',
+      views: {
+        conflicts: {
+          map: function (doc) {
+            if (doc._conflicts) {
+              // @ts-ignore
+              emit()
+            }
+          }.toString()
+        }
+      }
+    }).catch(() => {})
+
+    // arkype
+  
+    const sortOrder = ['archived', 'done', 'order']
     let filter = $state(null)
     db.createIndex({
       index: { fields: sortOrder }
@@ -29,6 +46,20 @@
       filter && refreshTodos({ activeFilter: filter })
     })
 
+    let hasConflicts = false
+
+    async function resolveConflicts() {
+      const { rows: conflictDocs } = await db.query('conflicts', {
+        include_docs: true,
+        conflicts: true
+      })
+
+      for (const {doc: conflictDoc} of conflictDocs) {
+        const conflicts = await Promise.all(conflictDoc._conflicts.map(rev => db.get(conflictDoc._id, {rev})))
+        console.log('Conflicts found:', { conflictDoc, conflicts })
+      }
+    }
+
     let lastLocalSeq = $state(null)
     let changes = $state([])
     db.changes({
@@ -38,28 +69,41 @@
     }).on('change', async change => {
       change.doc = await db.get(change.id, { revs_info: true, conflicts: true })
       const conflicts = change.doc._conflicts && await Promise.all(change.doc._conflicts.map(rev => db.get(change.doc._id, {rev})))
-      const firstAvailableRev = change.doc._revs_info.find((rev, i) =>  i !== 0 && rev.status === 'available')?.rev
+      const firstAvailableIndex = change.doc._revs_info.findIndex((rev, i) =>  i !== 0 && rev.status === 'available')
+      const firstAvailableRev = change.doc._revs_info[firstAvailableIndex]?.rev
 
       delete change.doc._revs_info
       delete change.doc._conflicts
       change.conflicts = conflicts?.map(conflict => ({ left: jsonmergepatch.generate(change.doc, conflict), right: jsonmergepatch.generate(conflict, change.doc) })) 
 
+      if (change.conflicts) {
+        hasConflicts = true
+      }
+
       const ancestor = firstAvailableRev && await db.get(change.doc._id, { rev: firstAvailableRev })
       if (ancestor) {
+        if (firstAvailableIndex > 1) {
+          change.skippedVersions = firstAvailableIndex - 1
+        }
         change.diff = jsonmergepatch.generate(ancestor, change.doc)
       }
 
       const oldDoc = docs[change.id]
 
-      docs[change.id] = change.doc
       lastLocalSeq = change.seq
       changes = [change, ...changes]
       
-      for (const key of sortOrder) {
-        if (!oldDoc || (oldDoc[key] !== change.doc[key])) {
-          refreshTodos({ activeFilter: filter })
-          break
-        }        
+
+      // Prevent messing up editing text while getting updates. saving will raise conflict and can be handled by resolver
+      if (editingId !== change.id) {
+        docs[change.id] = change.doc
+
+        for (const key of sortOrder) {
+          if (!oldDoc || (oldDoc[key] !== change.doc[key])) {
+            refreshTodos({ activeFilter: filter })
+            break
+          }        
+        }
       }
     })
 
@@ -96,12 +140,17 @@
       if (remote) {
         replication = db.sync(remote, {
           live: true,
-          retry: true
+          retry: true,
+          attachments: true
         })
         replication.push.on('paused', async (err) => {          
           if (!err) {
             syncDoc.last_seq = (await db.info()).update_seq
             syncDoc._rev = (await db.put(syncDoc)).rev
+          }
+
+          if (hasConflicts && typeof remote !== 'string') {
+            resolveConflicts()
           }
         })
       }
@@ -133,10 +182,76 @@
       db.put({...docs[idToMove], order: newOrder})
     }
 
+    async function handleKeyDown (e, doc) {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.target.blur()
+        return
+      }
+
+      const newText = e.target.value
+      if (doc.text === newText) {
+        return
+      }
+
+      if (e.target.value.includes('@auto')) {
+        if (!crdts[doc._id]) {
+          // We switch the text field to a crdt if the @auto demo keyword is encountered
+          if (doc.automerge) {
+            const attachment = await db.getAttachment(doc._id, 'automerge')
+            const arrayBuffer = await attachment.arrayBuffer()
+            crdts[doc._id] = automerge.load(new Uint8Array(arrayBuffer))
+          } else {
+            crdts[doc._id] = automerge.from({ text: newText })
+          }
+        }
+
+        // Crdts need updates to their datastructures as often as possible, 
+        // but the pouchdb sync should be used for bigger changes.
+        // If a realtime text colaboration would be implemented you would also not use the document sync for keystrokes 
+        // but instead use a realtime client stream for the keystrokes and combine that with the document sync for snapshotting and the final session persistence.
+        crdts[doc._id] = automerge.change(crdts[doc._id], d => {
+          automerge.updateText(d, ["text"], newText)
+        })
+      }
+    }
+
+    async function handleBlur (e, doc) {
+      const newText = e.target.value
+      if (doc.text === newText) {
+        return
+      }
+
+      if (!e.target.value.includes('@auto') && crdts[doc._id]) {
+        // Remove automerge handling if the keyword is removed
+        doc.automerge = false
+        delete crdts[doc._id]
+        const { rev } = await db.removeAttachment(doc._id, 'automerge', doc._rev)
+        db.put({ ...doc, _rev: rev, text: newText }, { force: true })
+      } else if (crdts[doc._id]) {
+        crdts[doc._id] = automerge.change(crdts[doc._id], d => {
+          automerge.updateText(d, ["text"], newText)
+        })
+        db.put({ 
+          ...doc,
+          text: newText,
+          _attachments: {
+            automerge: {
+              content_type: "application/octet-stream",
+              data: new Blob([automerge.save(crdts[doc._id])], { type: 'application/octet-stream' })
+            }
+          }
+        }, { force: true })
+      } else {
+        db.put({ ...doc, text: newText }, { force: true })
+      }
+    }
+
     onDestroy(() => {
       replication?.cancel()
       db.close()
     })
+
+    let editingId = null
 </script>
   
 <article class:archived={filter !== 'active' || !initialLoad[filter]}>
@@ -167,7 +282,12 @@
 
             <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
             
-            <input type="text" value={doc.text} onblur={function () {(doc.text !== this.value) && db.put({ ...doc, text: this.value })  }}>
+            <input
+              type="text"
+              value={doc.text} 
+              onfocus={() => { editingId =  doc._id }}
+              onblur={e => { handleBlur(e, doc); editingId = null }}
+              onkeydown={e => handleKeyDown(e, doc)}>
             
             <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
             
@@ -191,11 +311,12 @@
     {/if}
   
     <ul>
-      {#each changes as { doc, seq, diff, conflicts }}
+      {#each changes as { doc, seq, diff, conflicts, skippedVersions }}
         <li>
-          db seq: {seq} <br>
+          db seq: {seq}<br>
           id: {doc._id}
           {#if diff}
+            {#if skippedVersions}(skipped {skippedVersions} obsolete changes){/if}
             <pre>diff: {JSON.stringify(diff, null, 2)}</pre>
           {:else}
             <pre>doc: {JSON.stringify(doc, null, 2)}</pre>
