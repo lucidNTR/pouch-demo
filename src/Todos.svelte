@@ -44,7 +44,11 @@
 
       docs[change.doc._id] = newDoc
       lastLocalSeq = change.seq
-      changes = [change, ...changes]
+      
+      if (lastLocalSeq > 1) {
+        changes = [change, ...changes]
+      }
+      
       if (refreshList) {
         refreshTodos()
       }
@@ -109,9 +113,8 @@
       }
 
       let newOrder
-      if ((index - 1) >= 0) {
-        const moveBelowDoc = docs[list.at(index - 1)]
-        newOrder = (moveBelowDoc.order + moveAboveDoc.order) / 2
+      if ((index - 1) >= 0 && docs[list.at(index - 1)].done === moveAboveDoc.done) {
+        newOrder = (docs[list.at(index - 1)].order + moveAboveDoc.order) / 2
       } else {
         newOrder = moveAboveDoc.order + 1
       }
