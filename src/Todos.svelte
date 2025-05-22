@@ -106,11 +106,18 @@
       newTodo = ''
     }
 
-    function move (moveAboveDoc, id) {
-      db.put({...docs[id], order: moveAboveDoc.order + 1})
-      console.log({ 
-        list, moveAboveDoc, move: docs[id]
-      })
+    function move (moveAboveDoc, id, index) {
+      let newOrder
+      if ((index - 1) >= 0) {
+        const moveBelowId = list.at(index - 1)
+        const moveBelowDoc = docs[moveBelowId]
+
+        newOrder = (moveBelowDoc.order + moveAboveDoc.order) / 2
+      } else {
+        newOrder = moveAboveDoc.order + 1
+      }
+
+      db.put({...docs[id], order: newOrder})
     }
 
     onDestroy(() => {
@@ -127,7 +134,7 @@
         <h2>User {name} {#if unsyncedChanges > 0}<p class="slow">({unsyncedChanges} unsynced changes)</p>{/if}</h2>
     </header>
 
-    {#each list as id (id)}
+    {#each list as id, i (id)}
       {@const doc = docs[id]}
       
       <div
@@ -135,7 +142,7 @@
         role="list"
         animate:flip={{ duration: 150 }}
         class:dragover={dragover === doc._id}
-        ondrop={() => move(doc, dragging)}
+        ondrop={() => move(doc, dragging, i)}
         ondragend={() => { dragging=null; dragover = null}}
         draggable={dragging===doc._id}
         ondragover={e => { e.preventDefault(); dragover = doc._id}} >
