@@ -2,6 +2,7 @@
     import { onDestroy } from 'svelte'
     import pouchDb from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
+    // @ts-ignore
     pouchDb.plugin(findPlugin)
 
     const sortOrder = ['archived', 'done', 'order']
@@ -63,7 +64,9 @@
         list = []
         for (const doc of newDocs.reverse()) {
           list.push(doc._id)
-          include_docs && (docs[doc._id] = doc)
+          if (include_docs) {
+            docs[doc._id] = doc
+          }
         }
       })
     }
@@ -103,7 +106,8 @@
   
     let newTodo = $state('')
     function add () {
-      db.post({ text: newTodo, done: false, archived: false, order: 10 })
+      const previousOrder = docs[list.at(-1)].order || 0
+      db.post({ text: newTodo, done: false, archived: false, order: previousOrder - 1 })
       newTodo = ''
     }
 
@@ -122,8 +126,8 @@
       {@const doc = docs[id]}
       
       <div style="display: flex; align-items: center;">
-        <input class="checkbox" type="checkbox" checked={doc.done} onchange={({ target }) => db.put({...doc, done: target.checked})}>
-        <input type="text" value={doc.text} onblur={({ target }) => doc.text !== newText && db.put({ ...doc, text: newText })}>
+        <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
+        <input type="text" value={doc.text} onblur={function () { doc.text !== this.value && db.put({ ...doc, text: this.value } ) }}>
       </div>
     {/each}
     
