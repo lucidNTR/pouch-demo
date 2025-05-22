@@ -106,6 +106,13 @@
       newTodo = ''
     }
 
+    function move (moveAboveDoc, id) {
+      db.put({...docs[id], order: moveAboveDoc.order + 1})
+      console.log({ 
+        list, moveAboveDoc, move: docs[id]
+      })
+    }
+
     onDestroy(() => {
       replication?.cancel()
       db.close()
@@ -126,9 +133,9 @@
       <div
         class="todo"
         role="list"
-        animate:flip={{ duration: 250 }}
+        animate:flip={{ duration: 150 }}
         class:dragover={dragover === doc._id}
-        ondrop={event => console.log(event)}
+        ondrop={() => move(doc, dragging)}
         ondragend={() => { dragging=null; dragover = null}}
         draggable={dragging===doc._id}
         ondragover={e => { e.preventDefault(); dragover = doc._id}} >
