@@ -110,9 +110,7 @@
 
       let newOrder
       if ((index - 1) >= 0) {
-        const moveBelowId = list.at(index - 1)
-        const moveBelowDoc = docs[moveBelowId]
-
+        const moveBelowDoc = docs[list.at(index - 1)]
         newOrder = (moveBelowDoc.order + moveAboveDoc.order) / 2
       } else {
         newOrder = moveAboveDoc.order + 1
