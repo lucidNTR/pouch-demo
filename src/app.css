@@ -35,4 +35,11 @@ input.checkbox {
     margin-left: 9px;
     margin-top: 8px;
     margin-right: 0;
-  }
+}
+
+@media only screen and (min-width: 786px) {
+    section {
+        display: flex;
+        align-items: flex-start;
+    }
+}

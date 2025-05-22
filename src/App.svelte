@@ -1,13 +1,10 @@
 <script>
-  import User from './User.svelte'
+  import Todos from './Todos.svelte'
 
   let online = $state(true)
   let simulate = $state(true)
   let remoteUrl = $state('')
   let remoteDB = $state(null)
-
-  // add unsynced count
-  // sync status
 </script>
 
 <main>
@@ -21,10 +18,10 @@
   </header>
 
   <section>
-    <User name="a" remote={online ? (remoteUrl || remoteDB) : null} />
+    <Todos name="a" remote={online ? (remoteUrl || remoteDB) : null} />
     
     {#if simulate}
-      <User name="b" bind:db={remoteDB} />
+      <Todos name="b" bind:db={remoteDB} />
     {:else}
       <article>
          <header> 
@@ -36,12 +33,3 @@
     {/if}
   </section>
 </main>
-
-<style>
- @media only screen and (min-width: 786px) {
-    section {
-      display: flex;
-      align-items: flex-start;
-    }
- }
-</style>
