@@ -1,6 +1,6 @@
 <script>
     import { onDestroy } from 'svelte'
-    import {flip} from 'svelte/animate'
+    import { flip } from 'svelte/animate'
     import pouchDb from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
     // @ts-ignore
@@ -50,8 +50,8 @@
       }
     })
 
-    function refreshTodos ({ include_docs = false } = {}) {
-      db.find({
+    async function refreshTodos ({ include_docs = false } = {}) {
+      const { docs: newDocs } = await db.find({
         selector: {
           archived: false,
           done: { $exists: true },
@@ -60,22 +60,18 @@
         fields: include_docs ? undefined : ['_id'],
         sort: sortOrder,
         limit: 200
-      }).then(({ docs: newDocs }) => {
-        list = []
-        for (const doc of newDocs.reverse()) {
-          list.push(doc._id)
-          if (include_docs) {
-            docs[doc._id] = doc
-          }
-        }
       })
+      list = []
+      for (const doc of newDocs.reverse()) {
+        list.push(doc._id)
+        if (include_docs) {
+          docs[doc._id] = doc
+        }
+      }
     }
 
     let syncDoc = $state({ _id: '_local/sync', last_seq: null, _rev: undefined })
-    db.get('_local/sync').then(doc => {
-      syncDoc = doc
-    }).catch(() => {})
-
+    db.get('_local/sync').then(doc => syncDoc = doc).catch(() => {})
     let replication = null
     $effect(() => {
       if (replication) {
