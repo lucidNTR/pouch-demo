@@ -1,5 +1,6 @@
 <script>
     import { onDestroy } from 'svelte'
+    import {flip} from 'svelte/animate'
     import pouchDb from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
     // @ts-ignore
@@ -30,7 +31,6 @@
       live: true,
       since: 'now'
     }).on('change', (change) => {
-      console.log(change)
       const oldDoc = docs[change.doc._id]
       const newDoc = change.doc
 
@@ -81,7 +81,6 @@
       if (replication) {
         replication.cancel()
         replication = null
-        console.log('cancelling sync...')
       }
 
       if (remote) {
@@ -89,16 +88,12 @@
           live: true,
           retry: true
         })
-        replication.push.on('paused', async (err) => {
-          console.log('synced', { err })
-          
+        replication.push.on('paused', async (err) => {          
           if (!err) {
             syncDoc.last_seq = (await db.info()).update_seq
             syncDoc._rev = (await db.put(syncDoc)).rev
           }
         })
-
-        console.log('starting sync...', { remote, replication })
       }
     })
 
@@ -131,10 +126,12 @@
       <div
         class="todo"
         role="list"
+        animate:flip={{ duration: 250 }}
         class:dragover={dragover === doc._id}
-        ondragend={() => {dragging=null; dragover = null}}
+        ondrop={event => console.log(event)}
+        ondragend={() => { dragging=null; dragover = null}}
         draggable={dragging===doc._id}
-        ondragenter={() => {dragover = doc._id }} >
+        ondragover={e => { e.preventDefault(); dragover = doc._id}} >
 
           <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
           
@@ -142,7 +139,12 @@
           
           <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
           
-          <div class="drag" role="button" tabindex=-1 onmousedown={() => dragging=doc._id} onmouseup={() => {dragging=null; dragover = null}}>⠿</div>
+          <div 
+            class="drag"
+            role="button"
+            tabindex=-1
+            onmousedown={() => dragging=doc._id}
+            onmouseup={() => {dragging=null; dragover = null}}>⠿</div>
       </div>
     {/each}
     
