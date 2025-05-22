@@ -45,7 +45,6 @@
       change.conflicts = conflicts?.map(conflict => ({ left: jsonmergepatch.generate(change.doc, conflict), right: jsonmergepatch.generate(conflict, change.doc) })) 
 
       const ancestor = firstAvailableRev && await db.get(change.doc._id, { rev: firstAvailableRev })
-      
       if (ancestor) {
         change.diff = jsonmergepatch.generate(ancestor, change.doc)
       }
@@ -64,7 +63,7 @@
       }
     })
 
-    const initialLoad = {}
+    const initialLoad = $state({})
     async function refreshTodos ({ activeFilter = null } = {}) {
       const { docs: newDocs } = await db.find({
         selector: {
@@ -140,7 +139,7 @@
     })
 </script>
   
-<article class:archived={filter === 'archived'}>
+<article class:archived={filter !== 'active' || !initialLoad[filter]}>
     <header>
         <h2>
           User {name} 
@@ -149,7 +148,7 @@
           {/if}
         </h2>
 
-        <button class="filter-button" onmousedown={() => filter = (filter === 'active' ? 'archived' : 'active')}>{filter === 'active' ? 'Show Archived' : 'Show Active'}</button>
+        <button class="filter-button" class:hidden={!initialLoad[filter]} onmousedown={() => filter = (filter === 'active' ? 'archived' : 'active')}>{filter === 'active' ? 'Show Archived' : 'Show Active'}</button>
     </header>
 
     {#key filter}
@@ -204,6 +203,12 @@
 
 
           {#if conflicts}
+            <!-- <h3 style="margin-top: 21px;">Resolve:
+              <button onmousedown={() => {}}>Left</button>
+              <button onmousedown={() => {}}>Right</button>
+              <button onmousedown={() => {}}>LWW</button>
+              <button onmousedown={() => {}}>Application Logic</button>
+            </h3>  -->
             <pre>conflicts: {JSON.stringify(conflicts, null, 2)}</pre>
           {/if}
         </li>
