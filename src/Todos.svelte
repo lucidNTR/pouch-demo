@@ -106,7 +106,9 @@
       newTodo = ''
     }
 
-    function move (moveAboveDoc, id, index) {
+    let dragging = $state(null)
+    let dragover = $state(null)
+    function move (moveAboveDoc, idToMove, index) {
       let newOrder
       if ((index - 1) >= 0) {
         const moveBelowId = list.at(index - 1)
@@ -117,21 +119,23 @@
         newOrder = moveAboveDoc.order + 1
       }
 
-      db.put({...docs[id], order: newOrder})
+      db.put({...docs[idToMove], order: newOrder})
     }
 
     onDestroy(() => {
       replication?.cancel()
       db.close()
     })
-
-    let dragging = $state(null)
-    let dragover = $state(null)
 </script>
   
 <article>
     <header>
-        <h2>User {name} {#if unsyncedChanges > 0}<p class="slow">({unsyncedChanges} unsynced changes)</p>{/if}</h2>
+        <h2>
+          User {name} 
+          {#if unsyncedChanges > 0}
+            <p class="slow">({unsyncedChanges} unsynced changes)</p>
+          {/if}
+        </h2>
     </header>
 
     {#each list as id, i (id)}
@@ -140,7 +144,7 @@
       <div
         class="todo"
         role="list"
-        animate:flip={{ duration: 150 }}
+        animate:flip={{ duration: 100 }}
         class:dragover={dragover === doc._id}
         ondrop={() => move(doc, dragging, i)}
         ondragend={() => { dragging=null; dragover = null}}
@@ -149,7 +153,7 @@
 
           <input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }}>
           
-          <input type="text" value={doc.text} onblur={function () { doc.text !== this.value && db.put({ ...doc, text: this.value } ) }}>
+          <input type="text" value={doc.text} onblur={function () {(doc.text !== this.value) && db.put({ ...doc, text: this.value })  }}>
           
           <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
           
@@ -163,7 +167,7 @@
     {/each}
     
     <div style="display: flex; align-items: center;">
-      <input type="text" style="margin-left: 31px" placeholder="add todo" bind:value={newTodo}> 
+      <input type="text" style="margin-left: 31px" placeholder="add todo" bind:value={newTodo} onkeydown={e => { e.key === 'Enter' && add()}}> 
       <button class="add" onmousedown={add}>Add</button>
     </div>
 
