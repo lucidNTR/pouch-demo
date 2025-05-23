@@ -5,6 +5,7 @@
     import findPlugin from 'pouchdb-find'
     import jsonmergepatch from 'json-merge-patch'
     import * as automerge from "@automerge/automerge/next"
+	import { load } from '@automerge/automerge/next'
 
     let {
       name,
@@ -33,7 +34,7 @@
       }
     }).catch(() => {})
 
-    // arkype
+    // TODO: demo arkype validation
   
     const sortOrder = ['archived', 'done', 'order']
     let filter = $state(null)
@@ -43,10 +44,16 @@
       filter = 'active'
     })
     $effect(() => {
-      filter && refreshTodos({ activeFilter: filter })
+      filter && refreshTodos()
     })
 
     let hasConflicts = false
+
+    async function loadAmData (doc) {
+      const attachment = await db.getAttachment(doc._id, 'automerge',{ rev: doc._rev })
+      const arrayBuffer = await attachment.arrayBuffer()
+      return new Uint8Array(arrayBuffer)
+    }
 
     async function resolveConflicts() {
       const { rows: conflictDocs } = await db.query('conflicts', {
@@ -54,12 +61,48 @@
         conflicts: true
       })
 
-      for (const {doc: conflictDoc} of conflictDocs) {
-        const conflicts = await Promise.all(conflictDoc._conflicts.map(rev => db.get(conflictDoc._id, {rev})))
-        console.log('Conflicts found:', { conflictDoc, conflicts })
+      for (const { doc: tempWinner } of conflictDocs) {
+        const conflicts = await Promise.all(tempWinner._conflicts.map(conflictTev => db.get(tempWinner._id, { rev: conflictTev })))
+        
+        for (const conflict of conflicts) {
+          const diff = jsonmergepatch.generate(tempWinner, conflict)
+          
+          for (const key of Object.keys(diff).filter(key => !['_rev', '_attachments', '_conflicts'].includes(key))) {
+            if (key === 'order') {
+              // The order is not that important and we get away with always picking the highest order
+              tempWinner.order = Math.max(tempWinner.order, conflict.order)
+            } else if (key === 'done') {
+              // we always fall back to undone if there is a conflict. Conflicts here cannot happen unless one side makred a todo as undone again
+              tempWinner.done = false
+            } else if (key === 'archived') {
+              // we always fall back to unarchived if there is a conflict for the same reason as above
+              tempWinner.archived = false
+            } else if (key === 'text') {
+              if (tempWinner.automerge && conflict.automerge) {
+                const winAm = automerge.load(await loadAmData(tempWinner))
+                const conflictAm = automerge.load(await loadAmData(conflict))
+                const mergedAm = automerge.merge(winAm, conflictAm)
+                console.log({ winAm, conflictAm, mergedAm })
+                tempWinner.text = mergedAm.text
+              } else {
+                tempWinner.text = `${tempWinner.text} (conflict: "${conflict.text}")`
+              }
+            }
+          }
+        }
+
+        delete tempWinner._conflicts
+        await db.bulkDocs([
+          tempWinner,
+          ...conflicts.map(conflict => ({
+            ...conflict,
+            _deleted: true
+          }))
+        ])
       }
     }
 
+    let editingId = null
     let lastLocalSeq = $state(null)
     let changes = $state([])
     db.changes({
@@ -98,9 +141,13 @@
       if (editingId !== change.id) {
         docs[change.id] = change.doc
 
+        if (crdts[change.id] && change.doc.text !== crdts[change.id].text) {
+          delete crdts[change.id]
+        }
+
         for (const key of sortOrder) {
           if (!oldDoc || (oldDoc[key] !== change.doc[key])) {
-            refreshTodos({ activeFilter: filter })
+            refreshTodos()
             break
           }        
         }
@@ -108,10 +155,10 @@
     })
 
     const initialLoad = $state({})
-    async function refreshTodos ({ activeFilter = null } = {}) {
+    async function refreshTodos () {
       const { docs: newDocs } = await db.find({
         selector: {
-          archived: activeFilter === 'archived',
+          archived: filter === 'archived',
           done: { $exists: true },
           order: { $exists: true },
         },
@@ -119,11 +166,11 @@
         sort: sortOrder,
         limit: 200
       })
-      if (!initialLoad[activeFilter]) {
+      if (!initialLoad[filter]) {
         for (const doc of newDocs) {
             docs[doc._id] = doc
         }
-        initialLoad[activeFilter] = true
+        initialLoad[filter] = true
       }
       list = newDocs.reverse().map(doc => doc._id)
     }
@@ -197,9 +244,7 @@
         if (!crdts[doc._id]) {
           // We switch the text field to a crdt if the @auto demo keyword is encountered
           if (doc.automerge) {
-            const attachment = await db.getAttachment(doc._id, 'automerge')
-            const arrayBuffer = await attachment.arrayBuffer()
-            crdts[doc._id] = automerge.load(new Uint8Array(arrayBuffer))
+            crdts[doc._id] = automerge.load(await loadAmData(doc))
           } else {
             crdts[doc._id] = automerge.from({ text: newText })
           }
@@ -231,9 +276,11 @@
         crdts[doc._id] = automerge.change(crdts[doc._id], d => {
           automerge.updateText(d, ["text"], newText)
         })
+
         db.put({ 
           ...doc,
           text: newText,
+          automerge: true,
           _attachments: {
             automerge: {
               content_type: "application/octet-stream",
@@ -250,8 +297,6 @@
       replication?.cancel()
       db.close()
     })
-
-    let editingId = null
 </script>
   
 <article class:archived={filter !== 'active' || !initialLoad[filter]}>
@@ -263,7 +308,12 @@
           {/if}
         </h2>
 
-        <button class="filter-button" class:hidden={!initialLoad[filter]} onmousedown={() => filter = (filter === 'active' ? 'archived' : 'active')}>{filter === 'active' ? 'Show Archived' : 'Show Active'}</button>
+        <button
+          class="filter-button"
+          class:hidden={!initialLoad[filter]} 
+          onmousedown={() => filter = (filter === 'active' ? 'archived' : 'active')} >
+            {filter === 'active' ? 'Show Archived' : 'Show Active'}
+        </button>
     </header>
 
     {#key filter}
@@ -287,7 +337,7 @@
               value={doc.text} 
               onfocus={() => { editingId =  doc._id }}
               onblur={e => { handleBlur(e, doc); editingId = null }}
-              onkeydown={e => handleKeyDown(e, doc)}>
+              onkeydown={e => handleKeyDown(e, doc)} >
             
             <button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
             
