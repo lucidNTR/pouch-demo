@@ -5,7 +5,6 @@
     import findPlugin from 'pouchdb-find'
     import jsonmergepatch from 'json-merge-patch'
     import * as automerge from "@automerge/automerge/next"
-	import { load } from '@automerge/automerge/next'
 
     let {
       name,
@@ -82,7 +81,7 @@
                 const winAm = automerge.load(await loadAmData(tempWinner))
                 const conflictAm = automerge.load(await loadAmData(conflict))
                 const mergedAm = automerge.merge(winAm, conflictAm)
-                console.log({ winAm, conflictAm, mergedAm })
+
                 tempWinner.text = mergedAm.text
               } else {
                 tempWinner.text = `${tempWinner.text} (conflict: "${conflict.text}")`
@@ -135,7 +134,6 @@
 
       lastLocalSeq = change.seq
       changes = [change, ...changes]
-      
 
       // Prevent messing up editing text while getting updates. saving will raise conflict and can be handled by resolver
       if (editingId !== change.id) {
@@ -266,12 +264,12 @@
         return
       }
 
-      if (!e.target.value.includes('@auto') && crdts[doc._id]) {
+      if (!e.target.value.includes('@auto') && (crdts[doc._id] || doc.automerge)) {
         // Remove automerge handling if the keyword is removed
         doc.automerge = false
         delete crdts[doc._id]
         const { rev } = await db.removeAttachment(doc._id, 'automerge', doc._rev)
-        db.put({ ...doc, _rev: rev, text: newText }, { force: true })
+        db.put({ ...doc, _rev: rev, text: newText, _attachments: undefined }, { force: true })
       } else if (crdts[doc._id]) {
         crdts[doc._id] = automerge.change(crdts[doc._id], d => {
           automerge.updateText(d, ["text"], newText)
@@ -374,12 +372,6 @@
 
 
           {#if conflicts}
-            <!-- <h3 style="margin-top: 21px;">Resolve:
-              <button onmousedown={() => {}}>Left</button>
-              <button onmousedown={() => {}}>Right</button>
-              <button onmousedown={() => {}}>LWW</button>
-              <button onmousedown={() => {}}>Application Logic</button>
-            </h3>  -->
             <pre>conflicts: {JSON.stringify(conflicts, null, 2)}</pre>
           {/if}
         </li>
