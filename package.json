@@ -10,15 +10,12 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "5.0.3",
-    "json-merge-patch": "^1.0.2",
+    "json-merge-patch": "1.0.2",
     "pouchdb-browser": "9.0.0",
-    "pouchdb-find": "^9.0.0",
+    "pouchdb-find": "9.0.0",
     "svelte": "5.31.1",
     "vite": "6.3.5",
-    "vite-plugin-node-polyfills": "0.23.0"
-  },
-  "dependencies": {
-    "@automerge/automerge": "^2.2.9",
-    "vite-plugin-wasm": "^3.4.1"
+    "vite-plugin-node-polyfills": "0.23.0",
+    "yjs": "13.6.27"
   }
 }

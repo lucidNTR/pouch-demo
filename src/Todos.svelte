@@ -4,7 +4,7 @@
     import pouchDB from 'pouchdb-browser'
     import findPlugin from 'pouchdb-find'
     import jsonmergepatch from 'json-merge-patch'
-    import * as automerge from "@automerge/automerge/next"
+    import * as yjs from 'yjs'
 
     let {
       name,
@@ -48,8 +48,8 @@
 
     let hasConflicts = false
 
-    async function loadAmData (doc) {
-      const attachment = await db.getAttachment(doc._id, 'automerge',{ rev: doc._rev })
+    async function loadYjsData (doc) {
+      const attachment = await db.getAttachment(doc._id, 'yjs',{ rev: doc._rev })
       const arrayBuffer = await attachment.arrayBuffer()
       return new Uint8Array(arrayBuffer)
     }
@@ -61,9 +61,12 @@
       })
 
       for (const { doc: tempWinner } of conflictDocs) {
-        const conflicts = await Promise.all(tempWinner._conflicts.map(conflictTev => db.get(tempWinner._id, { rev: conflictTev })))
+        const conflicts = await db.get(tempWinner._id, { open_revs: tempWinner._conflicts })
         
-        for (const conflict of conflicts) {
+        for (const { ok: conflict } of conflicts) {
+          if (!conflict) {
+            continue
+          }
           const diff = jsonmergepatch.generate(tempWinner, conflict)
           
           for (const key of Object.keys(diff).filter(key => !['_rev', '_attachments', '_conflicts'].includes(key))) {
@@ -77,12 +80,17 @@
               // we always fall back to unarchived if there is a conflict for the same reason as above
               tempWinner.archived = false
             } else if (key === 'text') {
-              if (tempWinner.automerge && conflict.automerge) {
-                const winAm = automerge.load(await loadAmData(tempWinner))
-                const conflictAm = automerge.load(await loadAmData(conflict))
-                const mergedAm = automerge.merge(winAm, conflictAm)
+              if (tempWinner.yjs && conflict.yjs) {
+                const winYDoc = new yjs.Doc()
+                yjs.applyUpdate(winYDoc, await loadYjsData(tempWinner))
+                
+                const conflictYDoc = new yjs.Doc()
+                yjs.applyUpdate(conflictYDoc, await loadYjsData(conflict))
+                
+                const conflictUpdate = yjs.encodeStateAsUpdate(conflictYDoc)
+                yjs.applyUpdate(winYDoc, conflictUpdate)
 
-                tempWinner.text = mergedAm.text
+                tempWinner.text = winYDoc.getText('text').toString()
               } else {
                 tempWinner.text = `${tempWinner.text} (conflict: "${conflict.text}")`
               }
@@ -93,7 +101,7 @@
         delete tempWinner._conflicts
         await db.bulkDocs([
           tempWinner,
-          ...conflicts.map(conflict => ({
+          ...conflicts.map(({ok: conflict}) => ({
             ...conflict,
             _deleted: true
           }))
@@ -238,13 +246,18 @@
         return
       }
 
-      if (e.target.value.includes('@auto')) {
+      if (e.target.value.includes('@yjs')) {
         if (!crdts[doc._id]) {
-          // We switch the text field to a crdt if the @auto demo keyword is encountered
-          if (doc.automerge) {
-            crdts[doc._id] = automerge.load(await loadAmData(doc))
+          // We switch the text field to a crdt if the @yjs demo keyword is encountered
+          if (doc.yjs) {
+            const data = await loadYjsData(doc)
+            const ydoc = new yjs.Doc()
+            yjs.applyUpdate(ydoc, data)
+            crdts[doc._id] = ydoc
           } else {
-            crdts[doc._id] = automerge.from({ text: newText })
+            const ydoc = new yjs.Doc()
+            ydoc.getText('text').insert(0, newText)
+            crdts[doc._id] = ydoc
           }
         }
 
@@ -252,8 +265,41 @@
         // but the pouchdb sync should be used for bigger changes.
         // If a realtime text colaboration would be implemented you would also not use the document sync for keystrokes 
         // but instead use a realtime client stream for the keystrokes and combine that with the document sync for snapshotting and the final session persistence.
-        crdts[doc._id] = automerge.change(crdts[doc._id], d => {
-          automerge.updateText(d, ["text"], newText)
+        updateCrdt(doc, newText)
+      }
+    }
+
+    function updateCrdt (doc, newText) {
+      // Find the difference and apply minimal operations 
+      // normally you would instead use an editor component with crdt ops bindings instead of an input field
+      const ytext = crdts[doc._id].getText('text')
+      const currentText = ytext.toString()
+
+      if (currentText !== newText) {
+        crdts[doc._id].transact(() => {
+          const minLength = Math.min(currentText.length, newText.length)
+          let commonPrefix = 0
+          while (commonPrefix < minLength && currentText[commonPrefix] === newText[commonPrefix]) {
+            commonPrefix++
+          }
+          
+          let commonSuffix = 0
+          const maxSuffix = minLength - commonPrefix
+          while (commonSuffix < maxSuffix && 
+                 currentText[currentText.length - 1 - commonSuffix] === newText[newText.length - 1 - commonSuffix]) {
+            commonSuffix++
+          }
+          
+          const deleteStart = commonPrefix
+          const deleteLength = currentText.length - commonPrefix - commonSuffix
+          const insertText = newText.slice(commonPrefix, newText.length - commonSuffix)
+          
+          if (deleteLength > 0) {
+            ytext.delete(deleteStart, deleteLength)
+          }
+          if (insertText.length > 0) {
+            ytext.insert(deleteStart, insertText)
+          }
         })
       }
     }
@@ -264,25 +310,23 @@
         return
       }
 
-      if (!e.target.value.includes('@auto') && (crdts[doc._id] || doc.automerge)) {
-        // Remove automerge handling if the keyword is removed
-        doc.automerge = false
+      if (!e.target.value.includes('@yjs') && (crdts[doc._id] || doc.yjs)) {
+        // Remove yjs handling if the keyword is removed
+        doc.yjs = false
         delete crdts[doc._id]
-        const { rev } = await db.removeAttachment(doc._id, 'automerge', doc._rev)
+        const { rev } = await db.removeAttachment(doc._id, 'yjs', doc._rev)
         db.put({ ...doc, _rev: rev, text: newText, _attachments: undefined }, { force: true })
       } else if (crdts[doc._id]) {
-        crdts[doc._id] = automerge.change(crdts[doc._id], d => {
-          automerge.updateText(d, ["text"], newText)
-        })
+        updateCrdt(doc, newText)
 
         db.put({ 
           ...doc,
           text: newText,
-          automerge: true,
+          yjs: true,
           _attachments: {
-            automerge: {
+            yjs: {
               content_type: "application/octet-stream",
-              data: new Blob([automerge.save(crdts[doc._id])], { type: 'application/octet-stream' })
+              data: new Blob([yjs.encodeStateAsUpdate(crdts[doc._id])], { type: 'application/octet-stream' })
             }
           }
         }, { force: true })
@@ -299,12 +343,12 @@
   
 <article class:archived={filter !== 'active' || !initialLoad[filter]}>
     <header>
-        <h2>
+        <h3>
           User {name} 
           {#if unsyncedChanges > 0}
             <p class="slow">({unsyncedChanges} unsynced changes)</p>
           {/if}
-        </h2>
+        </h3>
 
         <button
           class="filter-button"
@@ -332,6 +376,7 @@
             
             <input
               type="text"
+              style="padding-right: 40px;"
               value={doc.text} 
               onfocus={() => { editingId =  doc._id }}
               onblur={e => { handleBlur(e, doc); editingId = null }}
@@ -360,7 +405,7 @@
   
     <ul>
       {#each changes as { doc, seq, diff, conflicts, skippedVersions }}
-        <li>
+        <li style="max-width: 425px;">
           db seq: {seq}<br>
           id: {doc._id}
           {#if diff}

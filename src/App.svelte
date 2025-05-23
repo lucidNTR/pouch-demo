@@ -11,9 +11,9 @@
   <header style="display: flex; padding: 17px; justify-content: space-between;">
     <img src="/logo.svg" alt="pouchdb logo" style="height: 30px; margin: 0; padding-top: 5px;">
     
-    <div>
-      <button onmousedown={() => online = !online}>Go {online === true ? "offline" : "online"}</button>
-      <button onmousedown={() => simulate = !simulate}>{simulate === true ? "Use Real Remote" : "Simulate Remote"}</button>
+    <div style="text-align: right;">
+      <button onmousedown={() => online = !online}>Go {online === true ? "Offline" : "Online"}</button>
+      <button onmousedown={() => simulate = !simulate}>{simulate === true ? "Real Remote" : "Simulate Remote"}</button>
     </div>
   </header>
 
