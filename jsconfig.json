@@ -11,6 +11,9 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
+    "strictNullChecks": true,
+    "strict": true,
+    "noImplicitAny": false,
     /**
      * To have warnings / errors of the Svelte compiler at the
      * correct position, enable source maps by default.
