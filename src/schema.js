@@ -1,6 +1,6 @@
 import { type } from 'arktype'
 
-const Doc = type({
+const PouchDoc = type({
     _id: 'string',
     '_rev?': 'string',
     '_attachments?': 'object',
@@ -11,7 +11,7 @@ const Doc = type({
 })
 
 const Todo = type({
-    '...': Doc,
+    '...': PouchDoc,
     text: '/^(?!.*forbidden).{1,249}$/', ///"string < 250",
     done: 'boolean',
     order: 'number',
