@@ -37,9 +37,6 @@
 
 	async function resolveConflicts (tempWinner, conflicts) {        
 		for (const conflict of conflicts) {
-			if (!conflict) {
-				continue
-			}
 			const diff = jsonmergepatch.generate(tempWinner, conflict)
 			
 			for (const key of Object.keys(diff).filter(key => !['_rev', '_attachments', '_conflicts'].includes(key))) {
@@ -77,6 +74,7 @@
 		])
 	}
 
+	let myEdits = new Set()
 	let editingId = null
 	let lastLocalSeq = $state(null)
 	let changes = $state([])
@@ -97,7 +95,7 @@
 		const conflicts = change.doc._conflicts && (await db.get(change.doc._id, { open_revs: change.doc._conflicts })).map(conflict => conflict.ok)
 
 		if (conflicts) {
-			resolveConflicts(change.doc, conflicts)
+			resolveConflicts(change.doc, conflicts.filter(conflict => conflict && myEdits.has(conflict._rev)))
 		}
 
 		const firstAvailableIndex = change.doc._revs_info.findIndex((rev, i) =>  i !== 0 && rev.status === 'available')
@@ -182,6 +180,7 @@
 				if (!err) {
 					syncDoc.last_seq = (await db.info()).update_seq
 					syncDoc._rev = (await db.put(syncDoc)).rev
+					myEdits.add(syncDoc._rev)
 				}
 			})
 		}
@@ -209,7 +208,7 @@
 	// Handle drag and drop reordering todos
 	let draggingId = $state('')
 	let dragoverId = $state('')
-	function move (moveAboveDoc, idToMove, index) {
+	async function move (moveAboveDoc, idToMove, index) {
 		if (docs[idToMove].done !== moveAboveDoc.done) {
 			return
 		}
@@ -224,7 +223,8 @@
 			newOrder = moveAboveDoc.order + 1
 		}
 
-		db.put({...docs[idToMove], order: newOrder})
+		const { rev } = await db.put({...docs[idToMove], order: newOrder})
+		myEdits.add(rev)
 	}
 
 
@@ -275,6 +275,7 @@
 			doc.yjs = false
 			delete crdts[doc._id]
 			const { rev } = await db.removeAttachment(doc._id, 'yjs', doc._rev)
+			myEdits.add(rev)
 			updatedDoc = { ...doc, _rev: rev, text: newText, _attachments: undefined }
 		} else if (crdts[doc._id]) {
 			updateCrdt(crdts[doc._id], newText)
@@ -298,7 +299,8 @@
 		if (updatedTodo instanceof type.errors) {
 			errors[doc._id] = updatedTodo
 		} else {
-			db.put(updatedTodo, { force: true })
+			const { rev } = await db.put(updatedTodo, { force: true })
+			myEdits.add(rev)
 			delete errors[doc._id]
 		}
 	}
@@ -340,7 +342,10 @@
 				draggable={draggingId === doc._id}
 				ondragover={e => { e.preventDefault(); dragoverId = doc._id}} >
 
-					<input class="checkbox" type="checkbox" checked={doc.done} onchange={function () { db.put({...doc, done: this.checked}) }} >
+					<input class="checkbox" type="checkbox" checked={doc.done} onchange={async function () { 
+						const { rev } = await db.put({...doc, done: this.checked})
+						myEdits.add(rev)
+					}} >
 					
 					<input
 						class:error={errors[doc._id]}
@@ -351,7 +356,7 @@
 						onblur={e => { handleBlur(e, doc); editingId = null }}
 						onkeydown={e => handleKeyDown(e, doc)} >
 					
-					<button class="delete" onmousedown={() => db.put({ ...doc, archived: true } )}>❌</button>
+					<button class="delete" onmousedown={async () => { const { rev } = await db.put({ ...doc, archived: true }); myEdits.add(rev) }}>❌</button>
 					
 					<div
 						class="drag"

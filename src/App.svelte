@@ -3,7 +3,7 @@
 
   let online = $state(true)
   let simulate = $state(true)
-  let remoteUrl = $state('')
+  let remoteUrl = $state('https://localfirst:localfirst@localfirst.backend.lol/jj-pouch-demo') // 'http://localhost:5984/pouch-demo'
   let remoteDB = $state(null)
 </script>
 
@@ -18,7 +18,7 @@
   </header>
 
   <section>
-    <Todos name="a" remote={online ? (remoteUrl || remoteDB) : null} />
+    <Todos name="a" remote={online ? (simulate ? remoteDB : remoteUrl) : null} />
     
     {#if simulate}
       <Todos name="b" bind:db={remoteDB} />
@@ -28,7 +28,7 @@
           <h3>Remote couchDB url:</h3>
         </header>
 
-        <input type="text" bind:value={remoteUrl} placeholder="https://my-remote-couchdb/myDb">
+        <input type="text" value={remoteUrl} placeholder="https://my-remote-couchdb/myDb" onblur={function () { remoteUrl = this.value }}>
       </article>
     {/if}
   </section>
