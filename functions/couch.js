@@ -1,5 +1,1 @@
-
-
-		// Add validation function to pouchdb
-
-        
+// Add validation function to pouchdb

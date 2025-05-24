@@ -1,24 +1,24 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PouchDB Demo With Svelte</title>
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PouchDB Demo With Svelte</title>
 
-    <script type="module" >
-      import { mount } from 'svelte'
-      import './src/app.css'
-      import App from './src/App.svelte'
+        <script type="module">
+            import { mount } from 'svelte'
+            import './src/app.css'
+            import App from './src/App.svelte'
 
-      const app = mount(App, {
-        target: document.getElementById('app'),
-      })
+            const app = mount(App, {
+                target: document.getElementById('app')
+            })
 
-      export default app
-    </script>
-  </head>
-  <body data-color-scheme="dark">
-    <div id="app"></div>
-  </body>
+            export default app
+        </script>
+    </head>
+    <body data-color-scheme="dark">
+        <div id="app"></div>
+    </body>
 </html>
