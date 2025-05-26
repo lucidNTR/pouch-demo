@@ -11,9 +11,10 @@ export const onRequest = async (context) => {
         body: context.request.body,
     })
 
-    response.headers.set('Access-Control-Allow-Origin', 'http://localhost:5173, https://stackblitz.com') 
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    const newHeaders = new Headers(response.headers)
+    newHeaders.set('Access-Control-Allow-Origin', 'http://localhost:5173, https://stackblitz.com')
+    newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
     return response
 }
