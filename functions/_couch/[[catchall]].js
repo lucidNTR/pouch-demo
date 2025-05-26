@@ -2,6 +2,15 @@ const couchUrl = 'https://localfirst.backend.lol'
 export const onRequest = async (context) => {
     const url = new URL(context.request.url)
 
+    if (context.request.method === 'OPTIONS') {
+        return new Response(null, {
+            status: 204,
+            headers: {
+                'Access-Control-Allow-Origin': context.request.headers.get('Origin') === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173',
+            },
+        })
+    }
+
     const headers = new Headers(context.request.headers)
     headers.set('Authorization', `Basic ${btoa('localfirst:localfirst')}`)
 
