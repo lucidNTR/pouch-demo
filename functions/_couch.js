@@ -16,5 +16,8 @@ export const onRequest = async (context) => {
     newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-    return response
+    return new Response(response.body, {
+        status: response.status,
+        headers: newHeaders,
+    })
 }
