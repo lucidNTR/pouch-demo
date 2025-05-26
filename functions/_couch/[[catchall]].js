@@ -18,7 +18,7 @@ export const onRequest = async (context) => {
     const headers = new Headers(context.request.headers)
     headers.set('Authorization', `Basic ${btoa('localfirst:localfirst')}`)
 
-    const response = await fetch(couchUrl + url.pathname.replace('/_couch', '/'), {
+    const response = await fetch(couchUrl + url.pathname.replace('/_couch', '/') + (url.search ? `?${url.search}` : ''), {
         method: context.request.method,
         headers,
         body: context.request.body,

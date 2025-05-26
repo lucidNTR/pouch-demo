@@ -37,6 +37,8 @@
 
 	async function resolveConflicts (tempWinner, conflicts) {  
 		console.log('resolveConflicts', name, tempWinner, conflicts)
+
+		// TODO: show three way merge
 		const winner = structuredClone(tempWinner)
 		delete winner._conflicts
 
