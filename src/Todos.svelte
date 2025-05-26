@@ -35,10 +35,12 @@
 		filter && refreshTodos()
 	})
 
-	async function resolveConflicts (tempWinner, conflicts) {   
+	async function resolveConflicts (tempWinner, conflicts) {  
+		console.log('resolveConflicts', name, tempWinner, conflicts)
 		const winner = structuredClone(tempWinner)
+		delete winner._conflicts
 
-		const hasYjs = winner.yjs && conflicts.all(c => c.yjs)
+		const hasYjs = winner.yjs && conflicts.every(c => !!c.yjs)
 		const conflictYDocs = []
 
 		for (const conflict of conflicts) {
@@ -65,7 +67,7 @@
 		}
 
 		if (conflictYDocs.length) {
-			let winYDoc = await makeYjsDoc(await db.getAttachment(winner._id, 'yjs',{ rev: winner._rev }))
+			let winYDoc = await makeYjsDoc(await db.getAttachment(tempWinner._id, 'yjs',{ rev: tempWinner._rev }))
 			
 			for (const conflictYDoc of conflictYDocs) {
 				yjs.applyUpdate(winYDoc, yjs.encodeStateAsUpdate(conflictYDoc))
@@ -83,13 +85,11 @@
 			_deleted: true
 		}))
 
-		delete tempWinner._conflicts
 		const winnerDiff = jsonmergepatch.generate(tempWinner, winner)
-		const tempWinnerHadChanges = Object.keys(winnerDiff)
-			.filter(key => !['_rev', '_attachments', '_conflicts'].includes(key)).length > 1
+		const tempWinnerHadChanges = Object.keys(winnerDiff).filter(key => !['_rev', '_attachments', '_conflicts'].includes(key)).length > 0
 
 		if (tempWinnerHadChanges) {
-			toUpdate.push(tempWinner)
+			toUpdate.push(winner)
 		}
 
 		await db.bulkDocs(toUpdate)
@@ -115,8 +115,8 @@
 
 		const conflicts = change.doc._conflicts && (await db.get(change.doc._id, { open_revs: change.doc._conflicts })).map(conflict => conflict.ok)
 
-		if (conflicts) {
-			resolveConflicts(change.doc, conflicts.filter(conflict => conflict && myEdits.has(conflict._rev)))
+		if (conflicts && myEdits.has(change.doc._rev)) {
+			resolveConflicts(change.doc, conflicts.filter(conflict => !!conflict))
 		}
 
 		const firstAvailableIndex = change.doc._revs_info.findIndex((rev, i) =>  i !== 0 && rev.status === 'available')
