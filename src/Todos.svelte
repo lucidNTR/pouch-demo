@@ -1,5 +1,5 @@
 <script>
-	import { onDestroy } from 'svelte'
+	import { onDestroy, untrack } from 'svelte'
 	import { flip } from 'svelte/animate'
 	import pouchDB from 'pouchdb-browser'
 	import findPlugin from 'pouchdb-find'
@@ -192,17 +192,19 @@
 		replication = null
 
 		if (remote) {
-			replication = db.sync(remote, {
-				live: true,
-				retry: true,
-				attachments: true
-			})
-			replication.push.on('paused', async (err) => {          
-				if (!err) {
-					syncDoc.last_seq = (await db.info()).update_seq
-					syncDoc._rev = (await db.put(syncDoc)).rev
-					myEdits.add(syncDoc._rev)
-				}
+			untrack(() => {
+				replication = db.sync(remote, {
+					live: true,
+					retry: true,
+					attachments: true
+				})
+				replication.push.on('paused', async (err) => {          
+					if (!err) {
+						syncDoc.last_seq = (await db.info()).update_seq
+						syncDoc._rev = (await db.put(syncDoc)).rev
+						myEdits.add(syncDoc._rev)
+					}
+				})
 			})
 		}
 	})
