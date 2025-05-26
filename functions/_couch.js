@@ -5,13 +5,15 @@ export const onRequest = async (context) => {
     const headers = new Headers(context.request.headers)
     headers.set('Authorization', `Basic ${btoa('localfirst:localfirst')}`)
 
-    headers.set('Access-Control-Allow-Origin', 'http://localhost:5173, https://stackblitz.com') 
-    headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-    return fetch(couchUrl + url.pathname.replace('/_couch', '/'), {
+    const response = await fetch(couchUrl + url.pathname.replace('/_couch', '/'), {
         method: context.request.method,
         headers,
         body: context.request.body,
     })
+
+    response.headers.set('Access-Control-Allow-Origin', 'http://localhost:5173, https://stackblitz.com') 
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+    return response
 }
