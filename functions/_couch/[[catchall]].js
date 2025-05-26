@@ -3,11 +3,15 @@ export const onRequest = async (context) => {
     const url = new URL(context.request.url)
 
     if (context.request.method === 'OPTIONS') {
+        const newHeaders = new Headers()
+        newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin') === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173')
+        newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        newHeaders.set('Access-Control-Allow-Credentials', 'true')
+        newHeaders.set('allow', 'DELETE,GET,HEAD,OPTIONS,POST,PUT')
         return new Response(null, {
             status: 204,
-            headers: {
-                'Access-Control-Allow-Origin': context.request.headers.get('Origin') === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173',
-            },
+            headers: newHeaders
         })
     }
 
