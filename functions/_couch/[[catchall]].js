@@ -15,6 +15,7 @@ export const onRequest = async (context) => {
     newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin') === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173')
     newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    newHeaders.set('Access-Control-Allow-Credentials', 'true')
 
     return new Response(response.body, {
         status: response.status,
