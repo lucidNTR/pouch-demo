@@ -35,43 +35,64 @@
 		filter && refreshTodos()
 	})
 
-	async function resolveConflicts (tempWinner, conflicts) {        
+	async function resolveConflicts (tempWinner, conflicts) {   
+		const winner = structuredClone(tempWinner)
+
+		const hasYjs = winner.yjs && conflicts.all(c => c.yjs)
+		const conflictYDocs = []
+
 		for (const conflict of conflicts) {
 			const diff = jsonmergepatch.generate(tempWinner, conflict)
 			
 			for (const key of Object.keys(diff).filter(key => !['_rev', '_attachments', '_conflicts'].includes(key))) {
 				if (key === 'order') {
 					// The order is not that important and we get away with always picking the highest order
-					tempWinner.order = Math.max(tempWinner.order, conflict.order)
+					winner.order = Math.max(winner.order, conflict.order)
 				} else if (key === 'done') {
 					// we always fall back to undone if there is a conflict. Conflicts here cannot happen unless one side makred a todo as undone again
-					tempWinner.done = false
+					winner.done = false
 				} else if (key === 'archived') {
 					// we always fall back to unarchived if there is a conflict for the same reason as above
-					tempWinner.archived = false
+					winner.archived = false
 				} else if (key === 'text') {
-					if (tempWinner.yjs && conflict.yjs) {
-						const winYDoc = await makeYjsDoc(await db.getAttachment(tempWinner._id, 'yjs',{ rev: tempWinner._rev }))
-
-						const conflictYDoc = await makeYjsDoc(await db.getAttachment(conflict._id, 'yjs',{ rev: conflict._rev }))
-						
-						yjs.applyUpdate(winYDoc, yjs.encodeStateAsUpdate(conflictYDoc))
-						tempWinner.text = winYDoc.getText('text').toString()
+					if (hasYjs) {
+						conflictYDocs.push(await makeYjsDoc(await db.getAttachment(conflict._id, 'yjs',{ rev: conflict._rev })))
 					} else {
-						tempWinner.text = `${tempWinner.text} (conflict: "${conflict.text}")`
+						winner.text = `${winner.text} (conflict: "${conflict.text}")`
 					}
 				}
 			}
 		}
 
+		if (conflictYDocs.length) {
+			let winYDoc = await makeYjsDoc(await db.getAttachment(winner._id, 'yjs',{ rev: winner._rev }))
+			
+			for (const conflictYDoc of conflictYDocs) {
+				yjs.applyUpdate(winYDoc, yjs.encodeStateAsUpdate(conflictYDoc))
+			}
+
+			winner.text = winYDoc.getText('text').toString()
+			winner._attachments.yjs = {
+				content_type: "application/octet-stream",
+				data: new Blob([yjs.encodeStateAsUpdate(winYDoc)], { type: 'application/octet-stream' })
+			}
+		}
+
+		const toUpdate = conflicts.map(conflict => ({
+			...conflict,
+			_deleted: true
+		}))
+
 		delete tempWinner._conflicts
-		await db.bulkDocs([
-			tempWinner,
-			...conflicts.map(conflict => ({
-				...conflict,
-				_deleted: true
-			}))
-		])
+		const winnerDiff = jsonmergepatch.generate(tempWinner, winner)
+		const tempWinnerHadChanges = Object.keys(winnerDiff)
+			.filter(key => !['_rev', '_attachments', '_conflicts'].includes(key)).length > 1
+
+		if (tempWinnerHadChanges) {
+			toUpdate.push(tempWinner)
+		}
+
+		await db.bulkDocs(toUpdate)
 	}
 
 	let myEdits = new Set()
@@ -311,6 +332,9 @@
 		replication?.cancel()
 		db.close()
 	})
+
+	// @ts-ignore - expose pouchdb for trying out
+	window.pouchDB = pouchDB
 </script>
 	
 <article class:archived={filter !== 'active' || !initialLoad[filter]}>
