@@ -12,7 +12,7 @@ export const onRequest = async (context) => {
     })
 
     const newHeaders = new Headers(response.headers)
-    newHeaders.set('Access-Control-Allow-Origin', 'http://localhost:5173, https://stackblitz.com')
+    newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin') === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173')
     newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
