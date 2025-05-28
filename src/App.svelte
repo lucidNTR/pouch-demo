@@ -1,9 +1,11 @@
 <script>
+  import { marked } from 'marked'
   import Todos from './Todos.svelte'
+  import readme from '../README.md?raw'
 
   let online = $state(true)
   let simulate = $state(true)
-  let remoteUrl = $state('https://pouch.lanes.pm/_couch/pouch-demo')
+  let remoteUrl = $state('https://pouch.lanes.pm/_couch/jj-pouch-demo')
   let remoteDB = $state(null)
 </script>
 
@@ -16,6 +18,13 @@
       <button onmousedown={() => simulate = !simulate}>{simulate === true ? "Real Remote" : "Simulate Remote"}</button>
     </div>
   </header>
+
+  <details style="margin: 1rem;">
+    <summary>Readme</summary>
+    <div style="max-height: 450px; overflow: auto;">
+      {@html marked(readme)}
+    </div>
+  </details>
 
   <section>
     <Todos name="a" remote={online ? (simulate ? remoteDB : remoteUrl) : null} />

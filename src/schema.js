@@ -12,7 +12,7 @@ const PouchDoc = type({
 
 const Todo = type({
     '...': PouchDoc,
-    text: '/^(?!.*forbidden).{1,249}$/', ///"string < 250",
+    text: '/^(?!.*forbidden).{1,249}$/',
     done: 'boolean',
     order: 'number',
 

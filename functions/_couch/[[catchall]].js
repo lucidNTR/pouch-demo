@@ -1,4 +1,6 @@
-const couchUrl = 'https://couch.lanes.pm'
+// This is just a simple http proxy for cors handling that exposes a plain couchdb to the demo app, in the real world something like this could also handle auth and edge caching in eg. cloudflare worker, complex setups can also do replication stream multiplexing, having a edge pouchdb in a durable object and many other optimizations.
+
+const couchUrl = 'https://localfirst.backend.lol'
 
 export const onRequest = async (context) => {
     const url = new URL(context.request.url)
@@ -21,7 +23,7 @@ export const onRequest = async (context) => {
     }
 
     const headers = new Headers(context.request.headers)
-    headers.set('Authorization', `Basic ${btoa('localfirst:localfirst')}`)
+    headers.set('Authorization', `Basic ${btoa('localfirst:localsecond')}`)
 
     const response = await fetch(couchUrl + url.pathname.replace('/_couch', '/') + (url.search ? `?${url.search}` : ''), {
         method: context.request.method,
