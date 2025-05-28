@@ -3,7 +3,7 @@ const couchUrl = 'https://couch.lanes.pm'
 export const onRequest = async (context) => {
     const url = new URL(context.request.url)
 
-    function headers (existingHeaders) {
+    function resHeaders (existingHeaders) {
         const newHeaders = new Headers(existingHeaders)
         newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin'))
         newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -16,7 +16,7 @@ export const onRequest = async (context) => {
     if (context.request.method === 'OPTIONS') {
         return new Response(null, {
             status: 204,
-            headers: headers()
+            headers: resHeaders()
         })
     }
 
@@ -31,6 +31,6 @@ export const onRequest = async (context) => {
 
     return new Response(response.body, {
         status: response.status,
-        headers: headers(response.headers),
+        headers: resHeaders(response.headers),
     })
 }
