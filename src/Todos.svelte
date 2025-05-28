@@ -3,6 +3,8 @@
 	import { flip } from 'svelte/animate'
 	import pouchDB from 'pouchdb-browser'
 	import findPlugin from 'pouchdb-find'
+	
+	// 
 	import jsonmergepatch from 'json-merge-patch'
 	import { yjs, updateCrdt, makeYjsDoc } from './lib/yjs-helpers.js'
 	import { Todo, type } from './schema.js'
@@ -38,7 +40,7 @@
 	async function resolveConflicts (tempWinner, conflicts) {  
 		console.log('resolveConflicts', name, tempWinner, conflicts)
 
-		// TODO: show three way merge
+		// TODO: show three way merge: link hoodie
 		const winner = structuredClone(tempWinner)
 		delete winner._conflicts
 

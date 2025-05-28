@@ -1,4 +1,5 @@
-// This is just a simple http proxy for cors handling that exposes a plain couchdb to the demo app, in the real world something like this could also handle auth and edge caching in eg. cloudflare worker, complex setups can also do replication stream multiplexing, having a edge pouchdb in a durable object and many other optimizations.
+// This is a simple http proxy for cors handling that exposes a plain couchdb to the demo app, in the real world something like this could also handle auth and edge caching in eg. cloudflare worker, complex setups can also do replication stream multiplexing, having an edge pouchdb in a durable object and more.
+// (This file is just for documentation and not live-editable on stackblitz and not executed in dev server)
 
 const couchUrl = 'https://localfirst.backend.lol'
 
