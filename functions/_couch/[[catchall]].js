@@ -1,17 +1,22 @@
-const couchUrl = 'https://localfirst.backend.lol'
+const couchUrl = 'https://couch.lanes.pm'
+
 export const onRequest = async (context) => {
     const url = new URL(context.request.url)
 
-    if (context.request.method === 'OPTIONS') {
-        const newHeaders = new Headers()
-        newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin')) // === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173')
+    function headers (existingHeaders) {
+        const newHeaders = new Headers(existingHeaders)
+        newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin'))
         newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         newHeaders.set('Access-Control-Allow-Credentials', 'true')
         newHeaders.set('allow', 'DELETE,GET,HEAD,OPTIONS,POST,PUT')
+        return newHeaders
+    }
+
+    if (context.request.method === 'OPTIONS') {
         return new Response(null, {
             status: 204,
-            headers: newHeaders
+            headers: headers()
         })
     }
 
@@ -24,15 +29,8 @@ export const onRequest = async (context) => {
         body: context.request.body,
     })
 
-    const newHeaders = new Headers(response.headers)
-    newHeaders.set('Access-Control-Allow-Origin', context.request.headers.get('Origin')) //  === 'https://stackblitz.com' ? 'https://stackblitz.com' : 'http://localhost:5173')
-    newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    newHeaders.set('Access-Control-Allow-Credentials', 'true')
-    newHeaders.set('allow', 'DELETE,GET,HEAD,OPTIONS,POST,PUT')
-
     return new Response(response.body, {
         status: response.status,
-        headers: newHeaders,
+        headers: headers(response.headers),
     })
 }

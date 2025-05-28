@@ -3,7 +3,7 @@
 
   let online = $state(true)
   let simulate = $state(true)
-  let remoteUrl = $state('https://pouch.lanes.pm/_couch/jj-pouch-demo')
+  let remoteUrl = $state('https://pouch.lanes.pm/_couch/pouch-demo')
   let remoteDB = $state(null)
 </script>
 
