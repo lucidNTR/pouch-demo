@@ -6,6 +6,7 @@ The aim is to be a bit more realistic than typical first introductions, while sk
 The demo is available on https://pouch.lanes.pm or on [StackBlitz](https://stackblitz.com/github/lucidNTR/pouch-demo?file=src%2FTodos.svelte).
 
 ## Things to try out:
+
 - Add todos, use the "go offline" button, make changes and go online again to see the changes syncing
 - Go offline again, mark a todo as done and change the text on one side, while only changing the text on the other side. Go online again and notice the conflict is shown but the checked state is always reverted to undone to prevent logical data loss
 - Create a conflict by moving and checking todos while offline, then go online and see that conflicts are resolved automatically
@@ -15,9 +16,10 @@ The demo is available on https://pouch.lanes.pm or on [StackBlitz](https://stack
 - Observe what happens in the sync feed underneath the main UI
 
 ## Things shown in the code:
-- Core concepts of documents, primary ids (_id), revisions (_rev), database sequence ids (_seq)
+
+- Core concepts of documents, primary ids (\_id), revisions (\_rev), database sequence ids (\_seq)
 - Replication to a local first PouchDB and optional remote collaborative CouchDB with online/offline handling
-- Conflict resolution with multiple strategies 
+- Conflict resolution with multiple strategies
 - Optional crdt resolution for text fields
 - Smart data design for sync without crdts with fractional indexing for ordering lists
 - Use of binary attachments
