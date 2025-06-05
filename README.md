@@ -27,4 +27,4 @@ The demo is available on https://pouch.lanes.pm or on [StackBlitz](https://stack
 - Diffing of changes
 - Validation
 
-NOTE: If you use this as a getting started point for your own project: to use PouchDB in vite you currently need vite-plugin-node-polyfills and the package you want is PouchDB-browser not PouchDB (which includes lots of nodejs specific dependencies not relevant for most use cases)
+NOTE: If you use this as a getting started point for your own project: to use PouchDB in vite and similar environments, you currently need the events npm package as well as the `define: { global: "window" }` setting. Also note that you probably want to use the pouchdb-browser not pouchdb package (which includes lots of nodejs specific dependencies not relevant for most use cases)
